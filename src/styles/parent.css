@@ -1,0 +1,332 @@
+/* The grown-up area (loaded only when a grown-up opens it). */
+
+.adult-overlay--page {
+  align-items: stretch;
+  padding: 0;
+  background: var(--cream);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.parent {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: calc(8px + var(--safe-top)) 18px calc(32px + var(--safe-bottom));
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.parent__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 60px;
+  background: var(--cream);
+}
+
+.parent__header .adult-close {
+  position: static;
+}
+
+.parent__eyebrow {
+  font-family: var(--font);
+  font-weight: 600;
+  color: var(--coral-deep);
+  font-size: 15px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.parent__section {
+  padding: 18px;
+  margin: 0 0 14px;
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: 0 2px 0 rgba(61, 54, 49, 0.06);
+}
+
+.parent__section h2 {
+  margin: 0 0 8px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--forest-deep);
+}
+
+.parent__section h2:focus {
+  outline: none;
+}
+
+.parent__section p {
+  margin: 0 0 10px;
+}
+
+.parent__stickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.parent__stickers figure {
+  margin: 0;
+  width: 76px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.parent__stickers svg {
+  width: 72px;
+  height: 72px;
+}
+
+.parent__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.parent__actions--small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.adult-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 14px;
+  background: var(--forest);
+  color: #fff;
+  font: 600 16px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.adult-btn:disabled {
+  background: #a7b3aa;
+  cursor: default;
+}
+
+.adult-btn--secondary {
+  min-height: 46px;
+  background: #fff;
+  color: var(--forest-deep);
+  border: 2px solid var(--sage);
+}
+
+.parent__download,
+.parent__error,
+.parent__confirm {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--sage-pale);
+}
+
+.parent__error {
+  background: #fdecea;
+}
+
+.parent__hint,
+.parent__small,
+.parent__note {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.parent__tips {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.parent__tips li {
+  margin-bottom: 8px;
+}
+
+.parent__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.parent__toggle input,
+.email-form__consent input {
+  width: 24px;
+  height: 24px;
+  margin: 2px 0 0;
+  flex: none;
+  accent-color: var(--forest);
+}
+
+.parent__toggle span {
+  display: flex;
+  flex-direction: column;
+}
+
+.parent__toggle small {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.parent__back {
+  width: 100%;
+}
+
+.email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.email-form__label {
+  font-weight: 600;
+}
+
+.email-form__input {
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 2px solid var(--sage);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 17px;
+  color: var(--ink);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.email-form__input.has-error {
+  border-color: var(--coral-deep);
+}
+
+.email-form__error {
+  margin: 0;
+  color: #b2442c;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.email-form__trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.email-form__consent {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--cream);
+  cursor: pointer;
+}
+
+.email-form .adult-btn[type='submit'] {
+  margin-top: 8px;
+}
+
+.email-done {
+  padding: 4px 0;
+}
+
+.email-done__title {
+  font-family: var(--font);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--forest-deep);
+}
+
+.adult-link--back {
+  padding: 0;
+}
+
+/* ---------- Print ---------- */
+
+.print-sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0.4in;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  #root,
+  .app,
+  .adult-overlay {
+    display: none !important;
+  }
+  .print-sheet {
+    display: block !important;
+    width: 7.7in;
+    margin: 0 auto;
+    text-align: center;
+    font-family: var(--font);
+    color: var(--forest-deep);
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-sheet h1 {
+    margin: 0.1in 0 0;
+    font-size: 30pt;
+    font-weight: 600;
+  }
+  .print-sheet h2 {
+    margin: 0;
+    font-size: 24pt;
+    font-weight: 600;
+    color: var(--coral-deep);
+  }
+  .print-sheet__owner {
+    margin: 0.08in 0 0.12in;
+    font: 12pt system-ui, sans-serif;
+    color: var(--ink-soft);
+  }
+  .print-sheet__owner span {
+    display: inline-block;
+    width: 2.4in;
+    border-bottom: 1px solid var(--ink-soft);
+  }
+  .print-sheet__page > svg {
+    width: 5.9in;
+    height: 7.47in;
+  }
+  .print-sheet__names,
+  .print-sheet__credit {
+    margin: 0.06in 0 0;
+    font: 10pt system-ui, sans-serif;
+    color: var(--ink-soft);
+  }
+}
+
+.parent a:not(.adult-btn) {
+  color: var(--forest);
+  font-weight: 600;
+}

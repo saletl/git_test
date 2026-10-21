@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.netlify/
+.dev-outbox/
+test-results/
+playwright-report/
+qr-output/
+coverage/
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
