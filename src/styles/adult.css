@@ -1,0 +1,130 @@
+/* Grown-up screens: plain, readable, and scrollable. Used by the parent gate (main bundle). */
+
+.adult-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
+  background: rgba(54, 81, 63, 0.45);
+  animation: screen-in 0.2s ease-out;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.adult-card {
+  position: relative;
+  width: min(100%, 420px);
+  max-height: 100%;
+  overflow: auto;
+  padding: 24px 20px 20px;
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.adult-card h2 {
+  margin: 0 0 8px;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 24px;
+  color: var(--forest-deep);
+}
+
+.adult-card h2:focus {
+  outline: none;
+}
+
+.adult-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--cream);
+  padding: 8px;
+  cursor: pointer;
+}
+
+.adult-close svg {
+  width: 100%;
+  height: 100%;
+}
+
+.adult-link {
+  border: none;
+  background: none;
+  padding: 8px 0;
+  color: var(--forest);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.adult-link:disabled {
+  color: var(--ink-soft);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.gate__prompt {
+  font-size: 17px;
+  margin: 0 0 6px;
+}
+
+.gate__retry {
+  margin: 0 0 6px;
+  color: var(--coral-deep);
+  font-weight: 600;
+}
+
+.gate__dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.gate__dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--forest);
+}
+
+.gate__dots span.is-filled {
+  background: var(--forest);
+}
+
+.gate__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.gate__key {
+  height: 58px;
+  border: 2px solid var(--cream-deep);
+  border-radius: 14px;
+  background: #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.gate__key:active {
+  background: var(--sage-pale);
+}
