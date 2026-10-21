@@ -2,18 +2,17 @@ import type { BandageStyle, CreatureArtist, CreatureProps, PlushKind } from '../
 import type { Expression, Look } from '../art/face';
 import type { Point } from '../art/shapes';
 import type { SoundId } from '../audio/sound';
-import type { StickerId } from '../stickers/catalog';
+import type { PageId } from '../coloring/catalog';
 
-export type PatientId = StickerId;
+export type PatientId = PageId;
 
-export const TOOL_IDS = ['stethoscope', 'thermometer', 'otoscope', 'bandage'] as const;
+/** The doctor tools on the toolbar. "light" looks in ears and throats. */
+export const TOOL_IDS = ['stethoscope', 'thermometer', 'light', 'bandage'] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
+export type ExamToolId = Exclude<ToolId, 'bandage'>;
+export type LookTarget = 'ear' | 'throat';
 
-/** Prickle's toy shot appears only in Prickle's room. */
-export type SpecialToolId = 'pretendShot';
-export type AnyToolId = ToolId | SpecialToolId;
-
-export const COMFORT_IDS = ['cuddle', 'song', 'pause', 'showTool'] as const;
+export const COMFORT_IDS = ['hug', 'break', 'music', 'hand'] as const;
 export type ComfortId = (typeof COMFORT_IDS)[number];
 
 export type EffectKind =
@@ -31,7 +30,9 @@ export type EffectKind =
   | 'question'
   | 'zzz'
   | 'flame'
-  | 'pinch';
+  | 'pinch'
+  | 'breathe'
+  | 'confetti';
 
 export interface EffectSpec {
   kind: EffectKind;
@@ -43,9 +44,24 @@ export interface EffectSpec {
 }
 
 export type GaugeReading = 'cozy' | 'chilly' | 'toasty' | 'wiggly' | 'gentle';
-export type LensDiscovery = 'sparkle' | 'heartSparkle' | 'snowman' | 'snowflake' | 'flower' | 'note' | 'duck' | 'tinySock';
+export type LensDiscovery =
+  | 'sparkle'
+  | 'heartSparkle'
+  | 'snowman'
+  | 'snowflake'
+  | 'flower'
+  | 'note'
+  | 'duck'
+  | 'tinySock'
+  | 'campfire'
+  | 'iceberg'
+  | 'disco'
+  | 'carrot';
 
-export type PopupSpec = { kind: 'gauge'; reading: GaugeReading } | { kind: 'lens'; discovery: LensDiscovery };
+export type PopupSpec = { kind: 'gauge'; reading: GaugeReading } | { kind: 'lens'; discovery: LensDiscovery; view?: LookTarget };
+
+/** Props that appear next to a patient for a moment (a cup of water, a pinwheel...). */
+export type ItemKind = 'cup' | 'pinwheel' | 'sillyGlasses' | 'musicBox' | 'helperHand' | 'tissue' | 'toyShot' | 'tongueDepressor';
 
 /** One step of a reaction. Reactions are short timelines of beats. */
 export interface Beat {
@@ -58,10 +74,10 @@ export interface Beat {
   sound?: SoundId;
   /** Opens a popup (gauge or magnified view); null closes it. */
   popup?: PopupSpec | null;
-  /** Shows the tool resting on an anchor; null hides it. */
-  toolAt?: { tool: AnyToolId; at: string } | null;
-  /** Shows the comfort toy demo; null hides it. */
-  demo?: { tool: AnyToolId; at: string } | null;
+  /** Shows a tool resting on an anchor; null hides it. */
+  toolAt?: { tool: ToolId | 'toyShot' | 'tongue'; at: string } | null;
+  /** Shows a prop next to the patient; null hides it. */
+  item?: { kind: ItemKind; at: string } | null;
   /** Persistent appearance changes (scarf count, sock position, and so on). */
   props?: CreatureProps;
   /** Description for screen readers. */
@@ -70,52 +86,103 @@ export interface Beat {
 
 export type Reaction = Beat[];
 
-export interface BandageOnPatient {
-  spot: string;
+export interface PlacedBandage {
+  id: number;
+  /** Position in the patient's own 240 x 240 space, so it stays put when the screen resizes. */
+  x: number;
+  y: number;
+  rotate: number;
   style: BandageStyle;
+  /** The body part it sticks to, so it moves with that part. */
+  part: string;
 }
+
+export const ACTIVITY_IDS = [
+  'bubbles',
+  'hiccupHelper',
+  'wardrobe',
+  'tissue',
+  'bunnyCheck',
+  'comfortPlan',
+  'pretendShot',
+  'soundMystery',
+  'sockRescue',
+] as const;
+export type ActivityId = (typeof ACTIVITY_IDS)[number];
 
 export interface VisitState {
   patientId: PatientId;
-  /** Meaningful interactions (tools and comfort choices). */
+  /** Meaningful interactions (tools, comfort choices, activities). */
   interactions: number;
-  toolUses: Partial<Record<AnyToolId, number>>;
-  comfortUses: Partial<Record<ComfortId, number>>;
+  uses: Partial<Record<string, number>>;
   pokes: number;
-  bandages: BandageOnPatient[];
+  bandages: PlacedBandage[];
+  nextBandageId: number;
   /** How much of the patient's silly problem remains (hiccups, sneezes...). Never shown as a number. */
   issue: number;
   comforted: boolean;
-  /** Prickle's pretend shot. */
   shotDone: boolean;
   /** The patient has said they feel better. */
   feelsBetter: boolean;
+  /** Chart discoveries: id -> detail (for example "pinwheel"). */
+  discoveries: Partial<Record<string, string>>;
+  /** Comfort choices and helpers used, in order, for the chart. */
+  helped: string[];
 }
 
 export interface ReactionContext {
   visit: VisitState;
   props: CreatureProps;
-  selectedTool: AnyToolId | null;
   /** How many times this tool or choice has been used before, including this time (1 = first). */
   use: number;
+  /** Where the child tapped, in the patient's 240 x 240 space, if known. */
+  point: Point | null;
 }
 
 export type ReactionFn = (ctx: ReactionContext) => Reaction;
 
-export interface BandageSpot {
+/** Places that get a special reaction when a bandage lands near them. Bandages never snap to these. */
+export interface BandageZone {
   id: string;
-  at: Point;
-  /** Which art part the bandage sticks to. */
-  part: string;
-  rotate: number;
-  scale?: number;
-  reaction: ReactionFn;
-}
-
-export interface PokeZone {
   at: Point;
   radius: number;
   reaction: ReactionFn;
+}
+
+/** Rough ellipses covering the character, so bandages always land on the patient and stick to the right part. */
+export interface BodyRegion {
+  part: string;
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+}
+
+export type ChartIcon =
+  | 'heartbeat'
+  | 'bubbles'
+  | 'helper'
+  | 'tools'
+  | 'bowtie'
+  | 'tissue'
+  | 'bunny'
+  | 'plan'
+  | 'bandage'
+  | 'rumble'
+  | 'mystery'
+  | 'sock';
+
+export interface DiscoveryDef {
+  id: string;
+  icon: ChartIcon;
+  /** Short label for grown-ups reading the chart. */
+  label: string;
+}
+
+export interface ActivityDef {
+  id: ActivityId;
+  /** Short label under the picture. */
+  label: string;
 }
 
 export interface PatientDefinition {
@@ -129,26 +196,40 @@ export interface PatientDefinition {
   /** Room tint for the exam room. */
   roomTint: string;
   anchors: Record<string, Point>;
-  /** Where each tool goes when used. */
-  toolTarget: Record<ToolId, string>;
-  bandageSpots: BandageSpot[];
-  pokes: PokeZone[];
+  /** Where each tool rests when used. */
+  toolTarget: Record<ExamToolId, string>;
+  /** Extra glowing spots to try a tool on (Mochi's tummy has several). Defaults to the tool's target. */
+  toolZones?: Partial<Record<ExamToolId, Point[]>>;
+  story: {
+    /** Shown in a speech bubble when the visit starts. */
+    intro: string;
+    /** The reason for the visit, on the chart. */
+    reason: string;
+    /** Optional conversation starters for a grown-up and child. */
+    prompts: string[];
+  };
+  chart: { discoveries: readonly [DiscoveryDef, DiscoveryDef, DiscoveryDef] };
+  /** Which events fill which chart discovery, for example "tool:stethoscope" -> "heartbeat". */
+  discoverOn: Partial<Record<string, string>>;
+  activities: ActivityDef[];
+  comfortLabels: Record<ComfortId, string>;
+  bodyRegions: BodyRegion[];
+  bandageZones: BandageZone[];
+  /** A bandage somewhere unexpected. */
+  bandageSurprise: ReactionFn;
+  pokes: { at: Point; radius: number; reaction: ReactionFn }[];
   defaultPoke: ReactionFn;
   restingExpression: (visit: VisitState) => Expression;
   /** Starting amount of the silly problem. */
   issueStart: number;
+  /** Which event keys ease the silly problem a little. */
+  eases: (key: string) => boolean;
   intro: Reaction;
   /** Played now and then when nobody is tapping. */
   idle: (visit: VisitState, props: CreatureProps) => Reaction | null;
-  tools: Record<ToolId, ReactionFn>;
+  tools: Record<'stethoscope' | 'thermometer', ReactionFn>;
+  look: Record<LookTarget, ReactionFn>;
   comfort: Record<ComfortId, ReactionFn>;
-  special?: {
-    tool: SpecialToolId;
-    onSelect: ReactionFn;
-    apply: ReactionFn;
-    /** A bandage that appears after the pretend shot. */
-    bandageAfter?: { spot: string; style: BandageStyle };
-  };
   /** Played once when the silly problem is all better. */
   feelsBetter: Reaction;
   /** End of a completed visit. */

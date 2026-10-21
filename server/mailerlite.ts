@@ -9,7 +9,7 @@
  * - New sign-ups are created as "unconfirmed" when double opt-in is on (the default), so MailerLite's
  *   confirmation email decides whether they become active. Turn on "Double opt-in for API and integrations"
  *   in MailerLite for that email to be sent.
- * - Existing active or unconfirmed subscribers are only added to the sticker-book group; their status is untouched.
+ * - Existing active or unconfirmed subscribers are only added to the coloring-book group; their status is untouched.
  * - Only the email address, the group and the opt-in time are sent. Nothing about the child or the game.
  */
 

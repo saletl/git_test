@@ -3,8 +3,8 @@ import { EffectsLayer } from '../animations/Effects';
 import { hamsterArt } from '../art/hamster';
 import { useSettings } from '../app/settings';
 import { Creature } from '../characters/Creature';
-import { StickerArt } from '../stickers/StickerArt';
-import { STICKERS, type StickerId } from '../stickers/catalog';
+import { PAGES, type PageId } from '../coloring/catalog';
+import { PageView } from '../coloring/PageView';
 import { PATIENTS, PATIENT_BY_ID } from './patients';
 import type { PatientDefinition, PatientId } from './types';
 import { useReactionPlayer } from './useReactionPlayer';
@@ -15,17 +15,17 @@ import { useReactionPlayer } from './useReactionPlayer';
  */
 export function GoodbyeScreen({
   patientId,
-  stickerId,
+  pageId,
   onFinish,
 }: {
   patientId: PatientId | null;
-  stickerId: StickerId | null;
+  pageId: PageId | null;
   onFinish: () => void;
 }) {
   const { play, announce } = useSettings();
   useEffect(() => {
     play('jingle');
-    announce(stickerId ? `Bye-bye! The ${STICKERS[stickerId].name} sticker is saved in the sticker book.` : 'Bye-bye! See you next time.');
+    announce(pageId ? `Bye-bye! ${PAGES[pageId].name}'s coloring page is saved in your coloring book.` : 'Bye-bye! See you next time.');
     // Only on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -63,9 +63,9 @@ export function GoodbyeScreen({
         </p>
         <div className="goodbye__friends">
           {patientId ? <WavingPatient def={PATIENT_BY_ID[patientId]} /> : <WavingCrew />}
-          {stickerId ? (
-            <div className="goodbye__sticker" role="img" aria-label={`${STICKERS[stickerId].name} sticker saved`}>
-              <StickerArt id={stickerId} />
+          {pageId ? (
+            <div className="goodbye__page" role="img" aria-label={`${PAGES[pageId].name}'s coloring page saved`}>
+              <PageView id={pageId} />
             </div>
           ) : null}
         </div>

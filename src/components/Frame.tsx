@@ -4,14 +4,14 @@ import { BackIcon, BookIcon, HomeIcon, LockIcon, SoundIcon, WaveIcon } from '../
 
 /**
  * Every child-facing screen shares the same frame, so controls never move:
- * home at top left; sound, sticker book and grown-ups at top right; the "all done" wave at bottom left.
+ * home at top left; sound, coloring book and grown-ups at top right; the "all done" wave at bottom left.
  */
 
 export interface FrameActions {
   onHome?: () => void;
   homeKind?: 'home' | 'back';
   homeLabel?: string;
-  onStickers?: () => void;
+  onBook?: () => void;
   onGrownUps?: () => void;
   onExit: () => void;
   bookKey?: number;
@@ -37,7 +37,7 @@ export function IconButton({
   );
 }
 
-export function TopBar({ onHome, homeKind = 'home', homeLabel, onStickers, onGrownUps, bookKey = 0 }: Omit<FrameActions, 'onExit'>) {
+export function TopBar({ onHome, homeKind = 'home', homeLabel, onBook, onGrownUps, bookKey = 0 }: Omit<FrameActions, 'onExit'>) {
   const { muted, toggleMuted, play } = useSettings();
   return (
     <header className="top-bar">
@@ -58,13 +58,13 @@ export function TopBar({ onHome, homeKind = 'home', homeLabel, onStickers, onGro
         <IconButton label={muted ? 'Sound is off. Turn sound on' : 'Sound is on. Turn sound off'} pressed={!muted} onClick={toggleMuted}>
           <SoundIcon on={!muted} />
         </IconButton>
-        {onStickers ? (
+        {onBook ? (
           <IconButton
-            label="My sticker book"
+            label="My coloring book"
             className={`book-btn${bookKey ? ' book-btn--bump' : ''}`}
             onClick={() => {
               play('page');
-              onStickers();
+              onBook();
             }}
           >
             <span key={bookKey} className="book-btn__art" data-book-target>

@@ -78,6 +78,12 @@
 .act-hop {
   animation: a-jump 0.6s ease-out;
 }
+.act-sip {
+  animation: a-sip 1s ease-in-out;
+}
+.act-sip :is(.ch-head, .ch-face) {
+  animation: a-sip-head 1s ease-in-out;
+}
 .act-hiccup {
   animation: a-hiccup 0.45s ease-out;
 }
@@ -732,6 +738,64 @@
 .fx-pinch {
   animation: fx-pop 0.6s ease-out;
 }
+.fx-breathe .fx-breathe-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fx-breathe 2.1s ease-in-out;
+}
+.fx-confetti {
+  animation: fx-fade 1.5s ease-out;
+}
+.fx-confetti-bit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fx-confetti 1.4s ease-out both;
+  --angle: calc(var(--i) * 60deg);
+}
+
+@keyframes a-sip {
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes a-sip-head {
+  30%,
+  70% {
+    transform: rotate(-6deg) translateY(2px);
+  }
+}
+
+@keyframes fx-breathe {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  45% {
+    transform: scale(1.25);
+  }
+  75% {
+    transform: scale(0.8);
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes fx-confetti {
+  from {
+    transform: rotate(var(--angle)) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--angle)) translateY(-70px) rotate(220deg);
+    opacity: 0;
+  }
+}
 
 @keyframes fx-float {
   0% {
@@ -980,11 +1044,33 @@
 [data-calm='true'] .exam__stage .scene__svg,
 [data-calm='true'] .popup,
 [data-calm='true'] .context-tray,
-[data-calm='true'] .complete__sticker,
+[data-calm='true'] .complete__page,
+[data-calm='true'] .goodbye__page,
 [data-calm='true'] .finish-btn,
-[data-calm='true'] .book__sticker {
+[data-calm='true'] .activity-panel,
+[data-calm='true'] .chart-board,
+[data-calm='true'] .chart-stamp,
+[data-calm='true'] .story-bubble,
+[data-calm='true'] .shot-helper,
+[data-calm='true'] .thought-bubble,
+[data-calm='true'] .mess-sparkle,
+[data-calm='true'] .book__preview-page {
   animation-name: calm-in !important;
   animation-duration: 0.3s !important;
+}
+
+[data-calm='true'] .float-bubble {
+  animation-duration: 4s !important;
+}
+
+[data-calm='true'] .float-bubble__art,
+[data-calm='true'] .item-spin,
+[data-calm='true'] .adventure-btn.is-glowing,
+[data-calm='true'] .pick-btn.is-glowing,
+[data-calm='true'] .bandage-handle.is-selected::after,
+[data-calm='true'] .book__card.is-new,
+[data-calm='true'] .chart-btn.is-bumping {
+  animation: none !important;
 }
 
 @keyframes calm-in {

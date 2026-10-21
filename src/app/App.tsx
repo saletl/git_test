@@ -10,8 +10,7 @@ import { WelcomeScreen } from '../game/WelcomeScreen';
 import type { PatientId } from '../game/types';
 import { ParentGate } from '../parent/ParentGate';
 import { ProgressStore } from '../services/storage';
-import { StickerBook } from '../stickers/StickerBook';
-import type { StickerId } from '../stickers/catalog';
+import { ColoringBook } from '../coloring/ColoringBook';
 import { SettingsProvider, useSettings } from './settings';
 
 const ParentArea = lazy(() => import('../parent/ParentArea'));
@@ -32,28 +31,28 @@ export function App() {
 }
 
 function Game() {
-  const [state, dispatch] = useReducer(gameReducer, undefined, () => initialGameState(saved.stickers, saved.placements));
+  const [state, dispatch] = useReducer(gameReducer, undefined, () => initialGameState(saved.pages));
   const [bookKey, setBookKey] = useState(0);
   const office = useMemo(() => resolveOffice(window.location.search), []);
   const settings = useSettings();
 
   useEffect(() => {
     const current = store.load();
-    store.save({ ...current, stickers: state.stickers, placements: state.placements });
-  }, [state.stickers, state.placements]);
+    store.save({ ...current, pages: state.pages });
+  }, [state.pages]);
 
-  const openStickers = useCallback(() => dispatch({ type: 'OPEN_OVERLAY', overlay: 'stickerBook' }), []);
+  const openBook = useCallback(() => dispatch({ type: 'OPEN_OVERLAY', overlay: 'coloringBook' }), []);
   const openGate = useCallback(() => {
     settings.play('tap');
     dispatch({ type: 'OPEN_OVERLAY', overlay: 'parentGate' });
   }, [settings]);
-  const exit = useCallback((patientId: PatientId | null = null, earnedSticker = false) => {
+  const exit = useCallback((patientId: PatientId | null = null, earned = false) => {
     stopAllSounds();
-    dispatch({ type: 'EXIT', patientId, earnedSticker });
+    dispatch({ type: 'EXIT', patientId, earned });
   }, []);
   const toWaitingRoom = useCallback(() => dispatch({ type: 'BACK_TO_WAITING_ROOM' }), []);
   const enterExam = useCallback((patientId: PatientId) => dispatch({ type: 'ENTER_EXAM', patientId }), []);
-  const onStickerLanded = useCallback(() => setBookKey((k) => k + 1), []);
+  const onPageLanded = useCallback(() => setBookKey((k) => k + 1), []);
 
   const screen = state.screen;
   const overlayOpen = state.overlay !== null;
@@ -62,7 +61,7 @@ function Game() {
   switch (screen.name) {
     case 'welcome':
       content = (
-        <WelcomeScreen office={office} onPlay={() => dispatch({ type: 'START' })} onStickers={openStickers} onGrownUps={openGate} />
+        <WelcomeScreen office={office} onPlay={() => dispatch({ type: 'START' })} onBook={openBook} onGrownUps={openGate} />
       );
       break;
     case 'waitingRoom':
@@ -72,7 +71,7 @@ function Game() {
           onChoose={(patientId) => dispatch({ type: 'CHOOSE_PATIENT', patientId })}
           onEnterExam={enterExam}
           onHome={() => dispatch({ type: 'GO_HOME' })}
-          onStickers={openStickers}
+          onBook={openBook}
           onGrownUps={openGate}
           onExit={() => exit()}
           bookKey={bookKey}
@@ -87,7 +86,7 @@ function Game() {
           onComplete={(patientId) => dispatch({ type: 'COMPLETE_VISIT', patientId })}
           onExit={(patientId, earned) => exit(patientId, earned)}
           onWaitingRoom={toWaitingRoom}
-          onStickers={openStickers}
+          onBook={openBook}
           onGrownUps={openGate}
           bookKey={bookKey}
           paused={overlayOpen}
@@ -99,12 +98,12 @@ function Game() {
         <VisitCompleteScreen
           key={`${screen.patientId}-${state.visitCounter}`}
           patientId={screen.patientId}
-          stickerId={screen.stickerId}
+          pageId={screen.pageId}
           onWaitingRoom={toWaitingRoom}
-          onStickers={openStickers}
+          onBook={openBook}
           onGrownUps={openGate}
           onExit={() => exit(screen.patientId)}
-          onStickerLanded={onStickerLanded}
+          onPageLanded={onPageLanded}
           bookKey={bookKey}
         />
       );
@@ -114,7 +113,7 @@ function Game() {
         <GoodbyeScreen
           key={state.visitCounter}
           patientId={screen.patientId}
-          stickerId={screen.stickerId}
+          pageId={screen.pageId}
           onFinish={() => dispatch({ type: 'FINISH_GOODBYE' })}
         />
       );
@@ -126,13 +125,11 @@ function Game() {
       <div className="app__screen" inert={overlayOpen} aria-hidden={overlayOpen || undefined}>
         {content}
       </div>
-      {state.overlay === 'stickerBook' ? (
+      {state.overlay === 'coloringBook' ? (
         <div className="app__overlay">
-          <StickerBook
-            stickers={state.stickers}
-            placements={state.placements}
-            newSticker={state.newSticker}
-            onPlace={(stickerId: StickerId, slot: number | null) => dispatch({ type: 'PLACE_STICKER', stickerId, slot })}
+          <ColoringBook
+            pages={state.pages}
+            newPage={state.newPage}
             onClose={() => dispatch({ type: 'CLOSE_OVERLAY' })}
             onGrownUps={openGate}
             onExit={() => exit(screen.name === 'exam' ? screen.patientId : null)}
@@ -153,10 +150,9 @@ function Game() {
           }
         >
           <ParentArea
-            stickers={state.stickers}
-            placements={state.placements}
+            pages={state.pages}
             storagePersistent={store.persistent}
-            onReset={() => dispatch({ type: 'RESET_STICKERS' })}
+            onReset={() => dispatch({ type: 'RESET_PAGES' })}
             onClose={() => dispatch({ type: 'CLOSE_OVERLAY' })}
           />
         </Suspense>

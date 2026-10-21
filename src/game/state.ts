@@ -1,4 +1,4 @@
-import { STICKER_IDS, type StickerId } from '../stickers/catalog';
+import { PAGE_IDS, type PageId } from '../coloring/catalog';
 import type { PatientId } from './types';
 
 /**
@@ -9,20 +9,20 @@ export type Screen =
   | { name: 'welcome' }
   | { name: 'waitingRoom'; entering?: PatientId }
   | { name: 'exam'; patientId: PatientId; visitKey: number }
-  | { name: 'visitComplete'; patientId: PatientId; stickerId: StickerId; firstTime: boolean }
-  | { name: 'goodbye'; patientId: PatientId | null; stickerId: StickerId | null };
+  | { name: 'visitComplete'; patientId: PatientId; pageId: PageId; firstTime: boolean }
+  | { name: 'goodbye'; patientId: PatientId | null; pageId: PageId | null };
 
-export type Overlay = null | 'stickerBook' | 'parentGate' | 'parentArea';
+export type Overlay = null | 'coloringBook' | 'parentGate' | 'parentArea';
 
 export interface GameState {
   screen: Screen;
   overlay: Overlay;
-  stickers: StickerId[];
-  placements: Partial<Record<StickerId, number>>;
+  /** Coloring pages earned, one per patient, in book order. */
+  pages: PageId[];
   /** Increments for each new exam so a fresh visit always starts clean. */
   visitCounter: number;
-  /** The newest sticker, to make it glow in the book. */
-  newSticker: StickerId | null;
+  /** The newest page, so it can glow in the book. */
+  newPage: PageId | null;
 }
 
 export type GameAction =
@@ -32,21 +32,21 @@ export type GameAction =
   | { type: 'ENTER_EXAM'; patientId: PatientId }
   | { type: 'COMPLETE_VISIT'; patientId: PatientId }
   | { type: 'BACK_TO_WAITING_ROOM' }
-  | { type: 'EXIT'; patientId?: PatientId | null; earnedSticker?: boolean }
+  | { type: 'EXIT'; patientId?: PatientId | null; earned?: boolean }
   | { type: 'FINISH_GOODBYE' }
   | { type: 'OPEN_OVERLAY'; overlay: Exclude<Overlay, null> }
   | { type: 'CLOSE_OVERLAY' }
-  | { type: 'PLACE_STICKER'; stickerId: StickerId; slot: number | null }
-  | { type: 'RESET_STICKERS' }
-  | { type: 'LOAD'; stickers: StickerId[]; placements: Partial<Record<StickerId, number>> };
+  | { type: 'RESET_PAGES' }
+  | { type: 'LOAD'; pages: PageId[] };
 
-export function initialGameState(stickers: StickerId[] = [], placements: Partial<Record<StickerId, number>> = {}): GameState {
-  return { screen: { name: 'welcome' }, overlay: null, stickers, placements, visitCounter: 0, newSticker: null };
+export function initialGameState(pages: PageId[] = []): GameState {
+  return { screen: { name: 'welcome' }, overlay: null, pages, visitCounter: 0, newPage: null };
 }
 
-function award(state: GameState, stickerId: StickerId): { stickers: StickerId[]; firstTime: boolean } {
-  if (state.stickers.includes(stickerId)) return { stickers: state.stickers, firstTime: false };
-  return { stickers: STICKER_IDS.filter((id) => id === stickerId || state.stickers.includes(id)), firstTime: true };
+/** Each patient unlocks exactly one page. Replaying keeps the page and never adds a duplicate. */
+function award(state: GameState, pageId: PageId): { pages: PageId[]; firstTime: boolean } {
+  if (state.pages.includes(pageId)) return { pages: state.pages, firstTime: false };
+  return { pages: PAGE_IDS.filter((id) => id === pageId || state.pages.includes(id)), firstTime: true };
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -73,14 +73,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'COMPLETE_VISIT': {
       if (state.screen.name !== 'exam' || state.screen.patientId !== action.patientId) return state;
-      const stickerId: StickerId = action.patientId;
-      const { stickers, firstTime } = award(state, stickerId);
+      const pageId: PageId = action.patientId;
+      const { pages, firstTime } = award(state, pageId);
       return {
         ...state,
         overlay: null,
-        stickers,
-        newSticker: firstTime ? stickerId : state.newSticker,
-        screen: { name: 'visitComplete', patientId: action.patientId, stickerId, firstTime },
+        pages,
+        newPage: firstTime ? pageId : state.newPage,
+        screen: { name: 'visitComplete', patientId: action.patientId, pageId, firstTime },
       };
     }
 
@@ -90,18 +90,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'EXIT': {
       if (state.screen.name === 'goodbye') return state;
-      let stickers = state.stickers;
-      let stickerId: StickerId | null = null;
-      let newSticker = state.newSticker;
-      // Leaving after enough play still keeps the sticker. Leaving early simply ends; nothing is lost or mentioned.
-      if (action.earnedSticker && action.patientId && state.screen.name === 'exam' && state.screen.patientId === action.patientId) {
+      let pages = state.pages;
+      let pageId: PageId | null = null;
+      let newPage = state.newPage;
+      // Leaving after a little play still keeps the page. Leaving early simply ends; nothing is lost or mentioned.
+      if (action.earned && action.patientId && state.screen.name === 'exam' && state.screen.patientId === action.patientId) {
         const result = award(state, action.patientId);
-        stickers = result.stickers;
-        stickerId = action.patientId;
-        if (result.firstTime) newSticker = action.patientId;
+        pages = result.pages;
+        pageId = action.patientId;
+        if (result.firstTime) newPage = action.patientId;
       }
       const patientId = action.patientId ?? (state.screen.name === 'exam' || state.screen.name === 'visitComplete' ? state.screen.patientId : null);
-      return { ...state, overlay: null, stickers, newSticker, screen: { name: 'goodbye', patientId, stickerId } };
+      return { ...state, overlay: null, pages, newPage, screen: { name: 'goodbye', patientId, pageId } };
     }
 
     case 'FINISH_GOODBYE':
@@ -111,40 +111,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'OPEN_OVERLAY':
       if (state.overlay === action.overlay) return state;
       if (action.overlay === 'parentArea' && state.overlay !== 'parentGate') return state;
-      if (action.overlay === 'stickerBook' && state.screen.name === 'visitComplete') {
+      if (action.overlay === 'coloringBook' && state.screen.name === 'visitComplete') {
         // Closing the book after a visit lands back in the waiting room.
-        return { ...state, overlay: 'stickerBook', screen: { name: 'waitingRoom' } };
+        return { ...state, overlay: 'coloringBook', screen: { name: 'waitingRoom' } };
       }
       return { ...state, overlay: action.overlay };
 
     case 'CLOSE_OVERLAY': {
       if (!state.overlay) return state;
-      return { ...state, overlay: null, newSticker: state.overlay === 'stickerBook' ? null : state.newSticker };
+      return { ...state, overlay: null, newPage: state.overlay === 'coloringBook' ? null : state.newPage };
     }
 
-    case 'PLACE_STICKER': {
-      if (!state.stickers.includes(action.stickerId)) return state;
-      const placements = { ...state.placements };
-      if (action.slot === null) {
-        delete placements[action.stickerId];
-      } else {
-        // Dropping onto a taken spot swaps the two stickers.
-        const previous = placements[action.stickerId];
-        for (const [id, slot] of Object.entries(placements)) {
-          if (slot === action.slot && id !== action.stickerId) {
-            if (previous === undefined) delete placements[id as StickerId];
-            else placements[id as StickerId] = previous;
-          }
-        }
-        placements[action.stickerId] = action.slot;
-      }
-      return { ...state, placements };
-    }
-
-    case 'RESET_STICKERS':
-      return { ...state, stickers: [], placements: {}, newSticker: null };
+    case 'RESET_PAGES':
+      return { ...state, pages: [], newPage: null };
 
     case 'LOAD':
-      return { ...state, stickers: action.stickers, placements: action.placements };
+      return { ...state, pages: action.pages };
   }
 }

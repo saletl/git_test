@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../app/settings';
 import { brand } from '../config/brand';
 import { CloseIcon } from '../icons/UiIcons';
-import { StickerArt } from '../stickers/StickerArt';
-import { layoutStickers, STICKERS, type PlacedSticker, type StickerId } from '../stickers/catalog';
+import { PAGES, type PageId } from '../coloring/catalog';
+import { PageView } from '../coloring/PageView';
 import { EmailForm } from './EmailForm';
 import { PrintSheet } from './PrintSheet';
 import '../styles/parent.css';
 
 /**
- * The grown-up area. Everything here is for parents and caregivers: saving the sticker book,
- * optional email delivery, a few doctor-visit ideas, settings, and privacy information.
+ * The grown-up area. Everything here is for parents and caregivers: saving the coloring book,
+ * a preview of email delivery (not connected yet), a few doctor-visit ideas, settings, and privacy information.
  */
 
 type View = 'home' | 'email';
@@ -31,14 +31,12 @@ const TIPS = [
 ];
 
 export default function ParentArea({
-  stickers,
-  placements,
+  pages,
   storagePersistent,
   onReset,
   onClose,
 }: {
-  stickers: StickerId[];
-  placements: Partial<Record<StickerId, number>>;
+  pages: PageId[];
   storagePersistent: boolean;
   onReset: () => void;
   onClose: () => void;
@@ -48,8 +46,7 @@ export default function ParentArea({
   const [download, setDownload] = useState<DownloadState>({ status: 'idle' });
   const [confirmReset, setConfirmReset] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const layout: PlacedSticker[] = layoutStickers(stickers, placements);
-  const hasStickers = layout.length > 0;
+  const hasPages = pages.length > 0;
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -72,14 +69,14 @@ export default function ParentArea({
 
   // Warm up the PDF code while the grown-up reads, so the download is quick.
   useEffect(() => {
-    if (hasStickers) void import('../stickers/pdf');
-  }, [hasStickers]);
+    if (hasPages) void import('../coloring/pdf');
+  }, [hasPages]);
 
   const makePdf = async () => {
     setDownload({ status: 'working' });
     try {
-      const { buildStickerBookPdf, PDF_FILENAME } = await import('../stickers/pdf');
-      const bytes = await buildStickerBookPdf(layout);
+      const { buildColoringBookPdf, PDF_FILENAME } = await import('../coloring/pdf');
+      const bytes = await buildColoringBookPdf(pages);
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       let file: File | null = null;
@@ -111,7 +108,7 @@ export default function ParentArea({
   const share = async () => {
     if (download.status !== 'ready' || !download.file) return;
     try {
-      await navigator.share({ files: [download.file], title: 'My Curious Creature Clinic Sticker Book' });
+      await navigator.share({ files: [download.file], title: 'My Creature Clinic Coloring Book' });
     } catch {
       // The person closed the share sheet. Nothing to do.
     }
@@ -136,44 +133,50 @@ export default function ParentArea({
         {view === 'email' ? (
           <section className="parent__section">
             <h2 id="parent-title" ref={headingRef} tabIndex={-1}>
-              Email the sticker book
+              Email coloring book
             </h2>
-            <EmailForm stickers={layout} onDownloadInstead={() => setView('home')} />
+            <EmailForm pages={pages} onDownload={makePdf} downloading={download.status === 'working'} />
+            {download.status === 'ready' ? (
+              <p className="parent__note" role="status">
+                Your coloring book is downloading. You can also <button type="button" className="adult-link" onClick={() => setView('home')}>go back</button> to save, share or print it.
+              </p>
+            ) : null}
           </section>
         ) : (
           <>
             <section className="parent__section parent__keep">
               <h2 id="parent-title" ref={headingRef} tabIndex={-1}>
-                Keep your little doctor&rsquo;s sticker book!
+                Send your coloring book home!
               </h2>
-              <p>Save a copy to print or send it to your inbox so your child can enjoy their creations again.</p>
-              {hasStickers ? (
-                <div className="parent__stickers" aria-label="Stickers collected">
-                  {layout.map((s) => (
-                    <figure key={s.id}>
-                      <StickerArt id={s.id} />
-                      <figcaption>{STICKERS[s.id].name}</figcaption>
+              <p>Your little doctor has been busy! Save your coloring pages to print at home.</p>
+              {hasPages ? (
+                <div className="parent__pages" aria-label="Coloring pages earned">
+                  {pages.map((id) => (
+                    <figure key={id}>
+                      <PageView id={id} />
+                      <figcaption>{PAGES[id].name}</figcaption>
                     </figure>
                   ))}
                 </div>
               ) : (
-                <p className="parent__note">No stickers yet. When your child finishes a visit, their sticker will appear here.</p>
+                <p className="parent__note">No pages yet. Each time your child finishes a visit, that patient&rsquo;s coloring page appears here.</p>
               )}
               <div className="parent__actions">
-                <button type="button" className="adult-btn" disabled={!hasStickers || download.status === 'working'} onClick={makePdf}>
-                  {download.status === 'working' ? 'Preparing...' : 'Download sticker book'}
+                <button type="button" className="adult-btn" disabled={!hasPages || download.status === 'working'} onClick={makePdf}>
+                  {download.status === 'working' ? 'Preparing...' : 'Download coloring book'}
                 </button>
-                <button type="button" className="adult-btn" disabled={!hasStickers} onClick={() => setView('email')}>
-                  Email sticker book
+                <button type="button" className="adult-btn adult-btn--secondary" onClick={() => setView('email')}>
+                  Email coloring book <span className="preview-tag">Preview</span>
                 </button>
               </div>
               {download.status === 'ready' ? (
                 <div className="parent__download" role="status">
                   <p>
-                    <strong>Your sticker book is ready.</strong> It&rsquo;s a one-page PDF sized for US Letter paper.
+                    <strong>Your coloring book is ready.</strong> It&rsquo;s a PDF with a cover and {pages.length === 1 ? 'one page' : `${pages.length} pages`}, sized
+                    for US Letter paper.
                   </p>
                   <div className="parent__actions parent__actions--small">
-                    <a className="adult-btn adult-btn--secondary" href={download.url} download="curious-creature-clinic-sticker-book.pdf">
+                    <a className="adult-btn adult-btn--secondary" href={download.url} download="my-creature-clinic-coloring-book.pdf">
                       Save PDF
                     </a>
                     {canShare ? (
@@ -196,15 +199,15 @@ export default function ParentArea({
               ) : null}
               {download.status === 'error' ? (
                 <div className="parent__error" role="alert">
-                  <p>We couldn&rsquo;t make the PDF on this device. You can still print the sticker book.</p>
+                  <p>We couldn&rsquo;t make the PDF on this device. You can still print the coloring pages.</p>
                   <button type="button" className="adult-btn adult-btn--secondary" onClick={() => window.print()}>
                     Print instead
                   </button>
                 </div>
               ) : null}
-              {hasStickers && download.status === 'idle' ? (
+              {hasPages && download.status === 'idle' ? (
                 <button type="button" className="adult-link" onClick={() => window.print()}>
-                  Or print it straight away
+                  Or print the pages straight away
                 </button>
               ) : null}
             </section>
@@ -240,7 +243,7 @@ export default function ParentArea({
               </label>
               {confirmReset ? (
                 <div className="parent__confirm">
-                  <p>Start a fresh, empty sticker book on this device?</p>
+                  <p>Start a fresh, empty coloring book on this device?</p>
                   <div className="parent__actions parent__actions--small">
                     <button
                       type="button"
@@ -254,17 +257,17 @@ export default function ParentArea({
                       Yes, start fresh
                     </button>
                     <button type="button" className="adult-link" onClick={() => setConfirmReset(false)}>
-                      Keep my stickers
+                      Keep my pages
                     </button>
                   </div>
                 </div>
               ) : (
-                <button type="button" className="adult-link" onClick={() => setConfirmReset(true)} disabled={!hasStickers}>
-                  Start a fresh sticker book
+                <button type="button" className="adult-link" onClick={() => setConfirmReset(true)} disabled={!hasPages}>
+                  Start a fresh coloring book
                 </button>
               )}
               {!storagePersistent ? (
-                <p className="parent__small">This browser isn&rsquo;t saving game data, so stickers will reset when the page closes.</p>
+                <p className="parent__small">This browser isn&rsquo;t saving game data, so coloring pages will reset when the page closes.</p>
               ) : null}
             </section>
 
@@ -279,8 +282,8 @@ export default function ParentArea({
             <section className="parent__section">
               <h2>Privacy</h2>
               <p>
-                The game has no accounts, ads, or tracking. It saves only the sticker book and two settings on this device. An email address is
-                used only if you choose to email the sticker book or join the newsletter.
+                The game has no accounts, ads, or tracking. It saves only which coloring pages were earned and two settings, on this device.
+                Email delivery isn&rsquo;t connected yet: an address typed into the email preview is never sent or saved.
               </p>
               <a className="adult-link" href="/privacy.html" target="_blank" rel="noopener">
                 Read the privacy notice
@@ -293,7 +296,7 @@ export default function ParentArea({
           </>
         )}
       </div>
-      {hasStickers ? <PrintSheet stickers={layout} /> : null}
+      {hasPages ? <PrintSheet pages={pages} /> : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 # Netlify settings for The Curious Creature Clinic.
-# Static site (Vite) plus one serverless function for emailing the sticker book.
+# A static site (Vite). There are no serverless functions: email delivery is deliberately not connected yet.
+# docs/EMAIL-INTEGRATION.md explains how to add the email function later.
 
 [build]
   command = "npm run build"
@@ -7,10 +8,6 @@
 
 [build.environment]
   NODE_VERSION = "22"
-
-[functions]
-  node_bundler = "esbuild"
-  directory = "netlify/functions"
 
 [[headers]]
   for = "/*"

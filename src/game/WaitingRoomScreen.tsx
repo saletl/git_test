@@ -92,7 +92,7 @@ export function WaitingRoomScreen({
   onChoose,
   onEnterExam,
   onHome,
-  onStickers,
+  onBook,
   onGrownUps,
   onExit,
   bookKey,
@@ -101,7 +101,7 @@ export function WaitingRoomScreen({
   onChoose: (id: PatientId) => void;
   onEnterExam: (id: PatientId) => void;
   onHome: () => void;
-  onStickers: () => void;
+  onBook: () => void;
   onGrownUps: () => void;
   onExit: () => void;
   bookKey: number;
@@ -205,7 +205,7 @@ export function WaitingRoomScreen({
 
   return (
     <div className="screen waiting">
-      <TopBar onHome={onHome} homeLabel="Back to the start" onStickers={onStickers} onGrownUps={onGrownUps} bookKey={bookKey} />
+      <TopBar onHome={onHome} homeLabel="Back to the start" onBook={onBook} onGrownUps={onGrownUps} bookKey={bookKey} />
       <main className="scene-wrap">
         <div className="scene waiting__scene" ref={stageRef}>
           <svg ref={svgRef} viewBox={WR_VIEWBOX} preserveAspectRatio="xMidYMid slice" className="scene__svg" aria-hidden="true">

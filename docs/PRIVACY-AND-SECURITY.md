@@ -12,68 +12,51 @@ This is an inventory of everything the game stores, sends, and receives, for the
 | Cookies | None |
 | Fonts | Bundled with the site (no Google Fonts or other font services) |
 | Network requests during play | None after the page loads |
-| Marketing | None. The newsletter and the Burrow link appear only in the grown-up area |
+| Marketing | None. The newsletter checkbox and the Burrow link appear only in the grown-up area |
+| Scores, levels, streaks | None. The only reward is one coloring page per patient |
 
 ## Stored on the device (localStorage)
 
 One key, `curious-creature-clinic.v1`, holding:
 
 ```json
-{ "stickers": ["pip"], "placements": { "pip": 0 }, "muted": false, "calm": false }
+{ "pages": ["pip", "mochi"], "muted": false, "calm": false }
 ```
 
-Anything else found under that key is discarded when read. Hints shown and how a child played are never saved. "Start a fresh sticker book" in the grown-up area clears the stickers.
+Anything else found under that key is discarded when read. Saves from the first version (`stickers`) are turned into pages. Hints shown, chart discoveries, bandages and how a child played are never saved. "Start a fresh coloring book" in the grown-up area clears the pages.
 
 ## Grown-up area
 
-The grown-up check asks the adult to tap three numbers written as words. It keeps little fingers out; it is **not** verifiable parental consent.
+The grown-up check asks the adult to tap three numbers written as words. It keeps little fingers out; it is **not** verification of a parent and not proof of COPPA compliance.
 
 ### Download and print
 
-The PDF is built in the browser. Nothing is sent anywhere.
+The PDF is built in the browser from the list of earned pages. Nothing is sent anywhere, and no email address is needed.
 
-### Email the sticker book
+### Email preview (not connected)
 
-The browser sends one request to `/api/sticker-book/email`:
+- The form checks the address format on the device.
+- The newsletter checkbox starts unchecked.
+- On submit, `disconnectedDelivery` returns "not connected" without a network request. The address is held only in the form while it is on screen; it is never written to storage, cookies, logs, or anywhere else.
+- The browser tests check that submitting the form makes no network request and leaves nothing in storage, and `npm run check` fails if the built site contains a call to the email endpoint.
 
-```json
-{ "email": "parent@example.com", "stickers": [{ "id": "pip", "slot": 0 }], "newsletter": false, "requestId": "random", "website": "" }
-```
-
-- The office code is never sent.
-- The server builds the PDF and sends it through Resend as an attachment. Nothing is written to disk or a database, and there is no download link.
-- For rate limiting and retry protection, the server keeps salted SHA-256 hashes of the address and the client IP in memory for about an hour at most; expired entries are cleared every few minutes. Serverless instances are short-lived, so these usually disappear sooner.
-- Logs contain event names and status codes only, never addresses or IPs.
-
-### Newsletter
-
-Only if the grown-up ticks the box (it starts unchecked):
-
-- The address, the group ID, and the sign-up time go to MailerLite.
-- New sign-ups start as **unconfirmed** (double opt-in), so they only become active after confirming.
-- Unsubscribed, bounced, or junk contacts are never changed or resubscribed.
-- The response is the same whether or not someone was already on the list, so the form can't be used to check who is subscribed.
-- Delivery and newsletter are independent: one failing never blocks the other.
+The plan and checklist for connecting email later, including what the future server stores (salted hashes for rate limiting, in memory, for about an hour) and sends to providers, are in [EMAIL-INTEGRATION.md](EMAIL-INTEGRATION.md).
 
 ## Third parties
 
 | Service | Role | Receives | When |
 | --- | --- | --- | --- |
-| Netlify | Hosting, serverless function | Standard request data, including IP address, in its logs | Every visit |
-| Resend | Transactional email | Recipient address, email content, PDF | Only when a grown-up requests the email |
-| MailerLite | Newsletter | Address, group, sign-up time | Only when a grown-up ticks the box |
+| Netlify | Hosting | Standard request data, including IP address, in its logs | Every visit |
+
+No email or newsletter service is contacted by this version.
 
 ## Security measures
 
-- Secrets live only in Netlify environment variables. `npm run check` scans the built site for keys and server-only names.
+- No secrets exist in this version. `npm run check` still scans the built site for key patterns, server-only setting names, provider addresses, and the email endpoint path.
 - Content Security Policy, `X-Frame-Options: DENY`, `nosniff`, strict referrer policy, and a Permissions Policy that turns off camera, microphone and location.
-- The email endpoint accepts only POST, JSON, under 4 KB, from allowed origins, with strict validation of every field.
-- Header injection is blocked by rejecting line breaks, commas, angle brackets and quotes in addresses.
-- The email template is fixed. Nothing typed by a visitor, including the address, is placed into it.
-- Platform rate limit (5 per minute per visitor) plus in-function limits per device, per recipient, and overall.
-- Idempotency keys stop retries from sending twice.
 - Office customization only uses entries from a list in the code, and logo paths are restricted to the site's own files, so links can't inject text or images.
-- Children never see technical error messages. Grown-ups see plain-language errors with a retry and a download option.
+- Saved data is validated on every read; unknown values are dropped.
+- Children never see technical error messages. Grown-ups see plain-language messages with a print option if the PDF can't be made.
 
 ## Items for legal review
 

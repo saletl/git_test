@@ -2,7 +2,7 @@ import type { CreatureArtist, CreatureProps } from './creature';
 import { plushShapes } from './creature';
 import { faceParts, isMouthOpen, type Expression, type Look } from './face';
 import { C } from './palette';
-import { curve, ellipse, fill, line, mirror, rrect, smooth, transformShapes, type Point, type Shape } from './shapes';
+import { circle, curve, ellipse, fill, line, mirror, rrect, smooth, transformShapes, type Point, type Shape } from './shapes';
 
 /** Waddles the Penguin: curious, enthusiastic, slightly clumsy. Wearing far too many scarves. */
 
@@ -42,6 +42,62 @@ export function scarfBand(i: number, count: number): Shape[] {
     );
   }
   return shapes;
+}
+
+/**
+ * Cozy extras from the wardrobe. Taking scarves off uncovers surprises:
+ * a fish pin when two or fewer are left, and a bow tie once they are all off.
+ */
+function waddlesAccessories(props: CreatureProps, scarfCount: number) {
+  const head: Shape[] = [];
+  if (props.hat === 'beanie') {
+    head.push(
+      fill(smooth([[80, 54], [84, 30], [104, 16], [136, 16], [156, 30], [160, 54]], true, 0.8), C.berry, C.ink, 2.4),
+      line(curve([92, 34], [120, 26], [148, 34]), C.berryLight, 4),
+      fill(rrect(76, 44, 88, 16, 8, 0), C.gold, C.ink, 2.4),
+      line('M88 48L90 56M102 48L104 56M116 48L118 56M130 48L132 56M144 48L146 56', C.goldDeep, 2, 0.8),
+      fill(ellipse(120, 12, 11, 10), C.paper, C.ink, 2.4),
+    );
+  }
+  if (props.earmuffs === true) {
+    head.push(
+      line(curve([72, 66], [120, 0], [168, 66]), C.blueDeep, 6),
+      fill(ellipse(70, 74, 13, 15), C.berryLight, C.berry, 2.6),
+      fill(ellipse(170, 74, 13, 15), C.berryLight, C.berry, 2.6),
+      fill(ellipse(66, 70, 4, 5), C.white, undefined, 0, 0.6),
+      fill(ellipse(166, 70, 4, 5), C.white, undefined, 0, 0.6),
+    );
+  }
+  const blanket: Shape[] =
+    props.blanket === true
+      ? [
+          fill(smooth([[60, 168], [120, 156], [180, 168], [190, 214], [168, 230], [72, 230], [50, 214]], true, 0.7), C.mintLight, C.mintDeep, 3),
+          line(curve([66, 186], [120, 176], [174, 186]), C.mint, 5, 0.9),
+          line(curve([60, 204], [120, 194], [182, 204]), C.mint, 5, 0.9),
+          line('M96 160L92 228M144 160L148 228', C.mint, 4, 0.7),
+          fill(smooth([[150, 166], [186, 160], [196, 176], [178, 190]], true, 0.7), C.mintLight, C.mintDeep, 2.6),
+        ]
+      : [];
+  const neck: Shape[] =
+    scarfCount === 0
+      ? [
+          fill(smooth([[120, 132], [96, 120], [94, 146]], true, 0.4), C.berry, C.ink, 2.4),
+          fill(smooth([[120, 132], [144, 120], [146, 146]], true, 0.4), C.berry, C.ink, 2.4),
+          fill(ellipse(120, 133, 7, 8), C.coral, C.ink, 2.2),
+          fill(circle(104, 128, 2.4), C.paper),
+          fill(circle(136, 128, 2.4), C.paper),
+        ]
+      : [];
+  const pin: Shape[] =
+    scarfCount > 0 && scarfCount <= 2
+      ? [
+          fill(smooth([[78, 146], [70, 140], [70, 152]], true, 0.4), C.coral, C.coralDeep, 1.8),
+          fill(ellipse(90, 146, 12, 7), C.blueLight, C.blueDeep, 2),
+          fill(circle(96, 144, 1.8), C.ink),
+          line(curve([86, 142], [88, 146], [86, 150]), C.blueDeep, 1.4),
+        ]
+      : [];
+  return { head, blanket, neck, pin };
 }
 
 export const waddlesArt: CreatureArtist = {
@@ -95,6 +151,7 @@ export const waddlesArt: CreatureArtist = {
       flipR = transformShapes(flipR, { origin: [170, 124], rotate: -105 });
       plush = plushShapes('fish', [214, 86], 0.9, false, -20);
     }
+    const accessories = waddlesAccessories(props, count);
     const scarfHat: Shape[] = props.scarfHat
       ? [
           fill(rrect(80, 30, 80, 16, 8, -4), C.berry, C.ink, 2.2),
@@ -186,13 +243,15 @@ export const waddlesArt: CreatureArtist = {
             ),
             line(curve([164, 72], [170, 78], [166, 86]), EDGE, 2.4, 0.6),
             ...scarfHat,
+            ...accessories.head,
           ],
         },
         { part: 'cheeks', shapes: face.cheeks },
         { part: 'eyes', shapes: face.eyes },
         { part: 'brows', shapes: face.brows },
         { part: 'mouth', pivot: [120, 96], shapes: beak },
-        { part: 'scarves', pivot: [120, 150], shapes: scarves },
+        { part: 'blanket', shapes: accessories.blanket },
+        { part: 'scarves', pivot: [120, 150], shapes: [...accessories.neck, ...scarves, ...accessories.pin] },
         { part: 'plush', shapes: plush },
         {
           part: 'hugFlippers',

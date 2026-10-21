@@ -1,13 +1,13 @@
 /**
- * The one-time sticker book email. The template is fixed: nothing typed by a visitor is ever inserted,
+ * The one-time coloring book email (future: not sent by the current build). The template is fixed: nothing typed by a visitor is ever inserted,
  * not even the recipient's address.
  */
 
-export const EMAIL_SUBJECT = 'Your Curious Creature Clinic sticker book!';
+export const EMAIL_SUBJECT = 'Your Creature Clinic coloring book is here!';
 
 const BRAND_URL = 'https://theburrowparenting.com';
 
-export function stickerBookEmail({ newsletterRequested }: { newsletterRequested: boolean }) {
+export function coloringBookEmail({ newsletterRequested }: { newsletterRequested: boolean }) {
   const footerNote = newsletterRequested
     ? 'You also asked to hear from The Burrow Parenting. If this is a new sign-up, a separate email will ask you to confirm.'
     : "This is a one-time email. You haven't been added to any mailing list.";
@@ -15,7 +15,7 @@ export function stickerBookEmail({ newsletterRequested }: { newsletterRequested:
   const text = [
     'Your little doctor did some important work today!',
     '',
-    "Here's the sticker book you saved from The Curious Creature Clinic. It's attached as a PDF you can print or keep.",
+    "Here are the coloring pages your child earned at The Curious Creature Clinic. They're attached as a PDF you can print at home.",
     '',
     'We hope your family had a little fun while you waited.',
     '',
@@ -47,7 +47,7 @@ export function stickerBookEmail({ newsletterRequested }: { newsletterRequested:
             </tr>
             <tr>
               <td style="padding:8px 28px;font-family:'Trebuchet MS',Arial,sans-serif;color:#3d3631;font-size:16px;line-height:1.55;">
-                <p style="margin:0 0 14px;">Here's the sticker book you saved from The Curious Creature Clinic. It's attached as a PDF you can print or keep.</p>
+                <p style="margin:0 0 14px;">Here are the coloring pages your child earned at The Curious Creature Clinic. They're attached as a PDF you can print at home.</p>
                 <p style="margin:0 0 14px;">We hope your family had a little fun while you waited.</p>
                 <p style="margin:0 0 14px;">Created with care by The Burrow Parenting.</p>
                 <p style="margin:0 0 6px;font-weight:bold;color:#d4694f;">Enjoy!</p>

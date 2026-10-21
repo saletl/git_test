@@ -1,5 +1,5 @@
 /**
- * Transactional email providers. The sticker book is sent as a PDF attachment, so nothing has to be
+ * Transactional email providers. The coloring book is sent as a PDF attachment, so nothing has to be
  * stored on a server and there is no download link to expire.
  *
  * - "resend": sends real email through Resend (https://resend.com), which supports attachments.
@@ -44,7 +44,7 @@ export class ResendProvider implements EmailProvider {
       Authorization: `Bearer ${this.options.apiKey}`,
       'Content-Type': 'application/json',
     };
-    if (email.idempotencyKey) headers['Idempotency-Key'] = `sticker-book-${email.idempotencyKey}`;
+    if (email.idempotencyKey) headers['Idempotency-Key'] = `coloring-book-${email.idempotencyKey}`;
     const body = {
       from: this.options.from,
       to: [email.to],

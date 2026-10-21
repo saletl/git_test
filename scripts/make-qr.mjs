@@ -101,7 +101,7 @@ for (let r = 0; r < size; r++) {
 
 center('A gentle pretend doctor game for little ones.', 200, 15, regular, ink);
 center('Free. No app, no account, no ads.', 178, 15, regular, ink);
-center('Grown-ups: look for the "Grown-ups" button for tips, the sticker book and privacy details.', 146, 11, regular, ink);
+center('Grown-ups: look for the "Grown-ups" button for tips, the coloring book and privacy details.', 146, 11, regular, ink);
 center('Created with care by The Burrow Parenting', 64, 12, bold, forest);
 center(url.host + (office ? `  ·  office: ${office}` : ''), 46, 9, regular, ink);
 if (test) {

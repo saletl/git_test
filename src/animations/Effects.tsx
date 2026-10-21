@@ -28,6 +28,8 @@ export const EFFECT_LIFETIME: Record<EffectKind, number> = {
   zzz: 1800,
   flame: 1100,
   pinch: 700,
+  breathe: 2200,
+  confetti: 1600,
 };
 
 const NOTE_COLORS = [C.coral, C.blueDeep, C.goldDeep, C.berry];
@@ -57,7 +59,7 @@ function Particle({ kind, index, size }: { kind: EffectKind; index: number; size
     }
     case 'heartBubble':
       return (
-        <g>
+        <g transform={`scale(${size})`}>
           <path
             d="M0 34 C-30 14 -40 -4 -32 -18 C-24 -32 -6 -32 0 -16 C6 -32 24 -32 32 -18 C40 -4 30 14 0 34 Z"
             fill={C.berryLight}
@@ -154,6 +156,20 @@ function Particle({ kind, index, size }: { kind: EffectKind; index: number; size
         <g>
           <path d="M0 -18 C10 -6 12 2 8 9 C5 14 -5 14 -8 9 C-12 2 -8 -6 0 -18 Z" fill={C.coral} />
           <path d="M0 -6 C5 0 5 5 3 8 C1 10 -2 10 -3 8 C-5 5 -4 0 0 -6 Z" fill={C.goldLight} />
+        </g>
+      );
+    case 'breathe':
+      return (
+        <g className="fx-breathe-ring">
+          <circle r={46 * size} fill={C.blueLight} fillOpacity={0.25} stroke={C.blue} strokeWidth={3} strokeDasharray="2 7" strokeLinecap="round" />
+        </g>
+      );
+    case 'confetti':
+      return (
+        <g>
+          {[C.coral, C.gold, C.mint, C.blue, C.berry, C.lilac].map((color, i) => (
+            <rect key={i} className="fx-confetti-bit" x={-3} y={-6} width={6} height={12} rx={2} fill={color} style={{ ['--i' as string]: i } as CSSProperties} />
+          ))}
         </g>
       );
     case 'pinch':

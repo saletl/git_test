@@ -1,13 +1,12 @@
-import { useRef, useState } from 'react';
+import type { PlushKind } from '../art/creature';
 import { useSettings } from '../app/settings';
-import { TOOL_IDS, type AnyToolId, type ToolId } from '../game/types';
-import { HeartIcon } from '../icons/UiIcons';
-import { TOOL_LABELS, ToolIcon } from '../icons/ToolIcons';
-
-const DRAG_THRESHOLD = 12;
+import { TOOL_IDS, type ToolId } from '../game/types';
+import { PlushIcon } from '../icons/ComfortIcons';
+import { TOOL_LABELS, TOOL_NAMES, ToolIcon } from '../icons/ToolIcons';
+import { useDrag } from './useDrag';
 
 /**
- * The four big tools plus the comfort heart.
+ * The doctor tools, each with a picture and a short word, plus the patient's own toy for comfort.
  * Tap a tool to pick it up (then tap the patient), or drag it straight onto the patient.
  */
 export function Toolbar({
@@ -15,6 +14,7 @@ export function Toolbar({
   comfortOpen,
   comfortGlow,
   hintTool,
+  plush,
   onSelect,
   onComfort,
   onDragStart,
@@ -22,93 +22,63 @@ export function Toolbar({
   onDrop,
   registerButton,
 }: {
-  selected: AnyToolId | null;
+  selected: ToolId | null;
   comfortOpen: boolean;
   comfortGlow: boolean;
   hintTool: ToolId | null;
+  plush: PlushKind;
   onSelect: (tool: ToolId) => void;
   onComfort: () => void;
   onDragStart: (tool: ToolId) => void;
   onDragEnd: () => void;
-  onDrop: (tool: ToolId, clientX: number, clientY: number) => boolean;
+  onDrop: (tool: ToolId, clientX: number, clientY: number) => void;
   registerButton: (tool: ToolId, el: HTMLButtonElement | null) => void;
 }) {
   const { play } = useSettings();
-  const ghostRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ tool: ToolId; id: number; x: number; y: number; active: boolean } | null>(null);
-  const suppressClick = useRef(false);
-  const [dragging, setDragging] = useState<ToolId | null>(null);
-
-  const moveGhost = (x: number, y: number) => {
-    const ghost = ghostRef.current;
-    if (ghost) ghost.style.transform = `translate(${x - 40}px, ${y - 40}px)`;
-  };
-
-  const end = (e: React.PointerEvent<HTMLButtonElement>, cancelled: boolean) => {
-    const d = drag.current;
-    drag.current = null;
-    if (!d || d.id !== e.pointerId) return;
-    if (d.active) {
-      suppressClick.current = true;
-      setDragging(null);
-      onDragEnd();
-      if (!cancelled) onDrop(d.tool, e.clientX, e.clientY);
-    }
-  };
+  const { bind, ghostRef, dragging, wasDrag } = useDrag<ToolId>({
+    onStart: (tool) => {
+      play('select');
+      onDragStart(tool);
+    },
+    onEnd: onDragEnd,
+    onDrop,
+  });
 
   return (
     <nav className="toolbar" aria-label="Doctor tools">
-      <div className="toolbar__tools">
-        {TOOL_IDS.map((tool) => (
-          <button
-            key={tool}
-            ref={(el) => registerButton(tool, el)}
-            type="button"
-            className={`tool-btn${selected === tool ? ' is-selected' : ''}${dragging === tool ? ' is-dragging' : ''}${hintTool === tool ? ' is-hinted' : ''}`}
-            aria-label={TOOL_LABELS[tool]}
-            aria-pressed={selected === tool}
-            onPointerDown={(e) => {
-              if (e.button !== 0 && e.pointerType === 'mouse') return;
-              drag.current = { tool, id: e.pointerId, x: e.clientX, y: e.clientY, active: false };
-              try {
-                e.currentTarget.setPointerCapture(e.pointerId);
-              } catch {
-                // Dragging still works through normal pointer events.
-              }
-            }}
-            onPointerMove={(e) => {
-              const d = drag.current;
-              if (!d || d.id !== e.pointerId) return;
-              if (!d.active && Math.hypot(e.clientX - d.x, e.clientY - d.y) > DRAG_THRESHOLD) {
-                d.active = true;
-                setDragging(tool);
-                onDragStart(tool);
-                play('select');
-              }
-              if (d.active) moveGhost(e.clientX, e.clientY);
-            }}
-            onPointerUp={(e) => end(e, false)}
-            onPointerCancel={(e) => end(e, true)}
-            onClick={() => {
-              if (suppressClick.current) {
-                suppressClick.current = false;
-                return;
-              }
-              onSelect(tool);
-            }}
-          >
-            <ToolIcon tool={tool} className="tool-btn__icon" />
-          </button>
-        ))}
-      </div>
+      {TOOL_IDS.map((tool) => (
+        <button
+          key={tool}
+          ref={(el) => registerButton(tool, el)}
+          type="button"
+          className={`tool-btn${selected === tool ? ' is-selected' : ''}${dragging === tool ? ' is-dragging' : ''}${hintTool === tool ? ' is-hinted' : ''}`}
+          aria-label={TOOL_NAMES[tool]}
+          aria-pressed={selected === tool}
+          data-tool={tool}
+          {...bind(tool)}
+          onClick={() => {
+            if (wasDrag()) return;
+            onSelect(tool);
+          }}
+        >
+          <ToolIcon tool={tool} className="tool-btn__icon" />
+          <span className="tool-btn__label" aria-hidden="true">
+            {TOOL_LABELS[tool]}
+          </span>
+        </button>
+      ))}
       <button
         type="button"
         className={`tool-btn tool-btn--comfort${comfortOpen ? ' is-selected' : ''}${comfortGlow ? ' is-glowing' : ''}`}
         aria-label="Comfort choices"
         aria-expanded={comfortOpen}
+        data-tool="comfort"
         onClick={onComfort}
       >
-        <HeartIcon className="tool-btn__icon" />
+        <PlushIcon plush={plush} className="tool-btn__icon" />
+        <span className="tool-btn__label" aria-hidden="true">
+          Comfort
+        </span>
       </button>
       <div ref={ghostRef} className={`tool-ghost${dragging ? ' is-visible' : ''}`} aria-hidden="true">
         {dragging ? <ToolIcon tool={dragging} /> : null}

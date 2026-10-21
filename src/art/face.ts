@@ -17,6 +17,7 @@ export const EXPRESSIONS = [
   'proud',
   'silly',
   'sleepy',
+  'ahh',
 ] as const;
 export type Expression = (typeof EXPRESSIONS)[number];
 
@@ -62,6 +63,8 @@ const SPEC: Record<Expression, FaceSpec> = {
   proud: { eyes: 'closedHappy', brows: 'raised', mouth: 'bigSmile', blush: 0.6 },
   silly: { eyes: 'wink', brows: 'silly', mouth: 'tongue', blush: 0.5 },
   sleepy: { eyes: 'closedDown', brows: 'flat', mouth: 'o', blush: 0.4 },
+  /** Saying "ahh" for a throat check. */
+  ahh: { eyes: 'half', brows: 'raised', mouth: 'bigO', blush: 0.5, look: 'up' },
 };
 
 export interface FaceGeometry {

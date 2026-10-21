@@ -1,247 +1,450 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BANDAGE_STYLES, bandageShapes, type BandageStyle } from '../art/creature';
+import { bandageShapes, type BandageStyle } from '../art/creature';
 import { EffectsLayer } from '../animations/Effects';
 import { useSettings } from '../app/settings';
-import { Creature, ShapeList, type ExtraShapes } from '../characters/Creature';
+import { Creature, type ExtraShapes } from '../characters/Creature';
 import { BottomBar, TopBar } from '../components/Frame';
 import { HandArt } from '../components/PointerHint';
-import { COMFORT_LABELS, ComfortArt } from '../icons/ComfortIcons';
-import { TOOL_LABELS, ToolArt, ToolIcon } from '../icons/ToolIcons';
+import { TOOL_NAMES, ToolIcon } from '../icons/ToolIcons';
 import { HeartCheckIcon } from '../icons/UiIcons';
-import { EXAM_PATIENT_BOX, EXAM_TRAY_BOX, EXAM_VIEWBOX, ExamRoomBackdrop, ShotTray } from '../scenes/ExamRoomArt';
+import {
+  EXAM_PATIENT_BOX,
+  EXAM_VIEWBOX,
+  ExamRoomBackdrop,
+  LampLight,
+  POSTER_COUNT,
+  ROOM_PROP_BOXES,
+  RoomProps,
+  type RoomProp,
+  type RoomState,
+} from '../scenes/ExamRoomArt';
+import { TargetRings, ToolSprite } from '../tools/InPatient';
+import { ItemSprite } from '../tools/Items';
 import { Popup } from '../tools/Popups';
-import { DemoProp, TargetRings, ToolSprite } from '../tools/InPatient';
 import { Toolbar } from '../tools/Toolbar';
 import { pxStyle, useSvgLayout } from '../utils/useSvgLayout';
+import { ACTIVITY_COMPONENTS } from './exam/activities';
+import { AdventureShelf } from './exam/AdventureShelf';
+import type { ActivityApi } from './exam/api';
+import { BandageHandles } from './exam/BandageHandles';
+import { ChartButton, ChartPanel } from './exam/Chart';
+import { StoryBubble, type BubbleMessage } from './exam/StoryBubble';
+import { BandageTray, ComfortTray } from './exam/Trays';
 import { PATIENT_BY_ID } from './patients';
 import { session } from './session';
-import { COMFORT_IDS, type AnyToolId, type ComfortId, type PatientId, type Point, type ToolId } from './types';
-import { applyEvent, canFinish, nearestBandageSpot, startVisit, type VisitEvent } from './visit';
+import type { ActivityId, ComfortId, LookTarget, PatientId, PlacedBandage, Point, Reaction, ToolId } from './types';
+import { applyEvent, canFinish, distance, startVisit, timesUsed, type VisitEvent } from './visit';
 import { useReactionPlayer } from './useReactionPlayer';
 
-type Tray = 'none' | 'bandage' | 'comfort';
+const PROMPT_FIRST_MS = 24000;
+const PROMPT_EVERY_MS = 38000;
 
-const BANDAGE_LABELS: Record<BandageStyle, string> = { stars: 'Star bandage', hearts: 'Heart bandage', stripes: 'Striped bandage' };
+const ROOM_LABELS: Record<RoomProp, string> = {
+  lamp: 'Exam lamp. Tap to turn it on or off',
+  poster: 'Poster. Tap to change it',
+  sink: 'Sink. Tap for bubbles',
+  cabinet: 'Cabinet. Tap to open or close it',
+};
 
 export function ExamScreen({
   patientId,
   onComplete,
   onExit,
   onWaitingRoom,
-  onStickers,
+  onBook,
   onGrownUps,
   bookKey,
   paused,
 }: {
   patientId: PatientId;
   onComplete: (id: PatientId) => void;
-  onExit: (id: PatientId, earnedSticker: boolean) => void;
+  onExit: (id: PatientId, earned: boolean) => void;
   onWaitingRoom: () => void;
-  onStickers: () => void;
+  onBook: () => void;
   onGrownUps: () => void;
   bookKey: number;
   paused: boolean;
 }) {
   const def = PATIENT_BY_ID[patientId];
+  const firstName = def.name.split(' ')[0]!;
   const { play: playSound, announce, calm } = useSettings();
   const [visit, setVisit] = useState(() => startVisit(def));
   const player = useReactionPlayer(def);
-  const [selected, setSelected] = useState<AnyToolId | null>(null);
+  const [selected, setSelected] = useState<ToolId | null>(null);
   const [dragging, setDragging] = useState<ToolId | null>(null);
-  const [tray, setTray] = useState<Tray>('none');
+  const [comfortOpen, setComfortOpen] = useState(false);
   const [bandageStyle, setBandageStyle] = useState<BandageStyle>('stars');
-  const [chartKey, setChartKey] = useState(0);
-  const [demoHint, setDemoHint] = useState<{ from: Point; to: Point } | null>(null);
+  const [selectedBandage, setSelectedBandage] = useState<number | null>(null);
+  const [draggedBandage, setDraggedBandage] = useState<number | null>(null);
+  const [history, setHistory] = useState<PlacedBandage[][]>([]);
+  const [activity, setActivity] = useState<ActivityId | null>(null);
+  const [chartOpen, setChartOpen] = useState(false);
+  const [chartBump, setChartBump] = useState(0);
+  const [room, setRoom] = useState<RoomState>({ lamp: false, poster: 0, cabinet: false, sink: 0 });
+  const [bubble, setBubble] = useState<BubbleMessage | null>({ kind: 'story', text: def.story.intro, key: 0 });
+  const [highlights, setHighlights] = useState<Point[] | null>(null);
+  const [demo, setDemo] = useState<{ tool: ToolId; from: Point; to: Point } | null>(null);
   const [hintTool, setHintTool] = useState<ToolId | null>(null);
   const [pulseTargets, setPulseTargets] = useState(false);
+  const [stageEl, setStageEl] = useState<HTMLElement | null>(null);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const roomRef = useRef<SVGSVGElement>(null);
   const toPx = useSvgLayout(roomRef, stageRef);
   const toolButtons = useRef<Partial<Record<ToolId, HTMLButtonElement | null>>>({});
-  const lastTouch = useRef(0);
+  const lastTouch = useRef(Date.now());
   const interacted = useRef(false);
-  const introDone = useRef(false);
   const visitRef = useRef(visit);
   visitRef.current = visit;
   const propsRef = useRef(player.props);
   propsRef.current = player.props;
+  const activityRef = useRef(activity);
+  activityRef.current = activity;
+  const patientTap = useRef<((point: Point | null) => boolean) | null>(null);
   const finishAnnounced = useRef(false);
+  const promptIndex = useRef(0);
 
   const patientPx = toPx(EXAM_PATIENT_BOX);
-  const trayPx = def.special ? toPx(EXAM_TRAY_BOX) : null;
-  const chartPx = toPx({ x: 282, y: 44, w: 100, h: 136 });
+  const unit = patientPx ? patientPx.width / 240 : 1;
+
+  const setStage = useCallback((el: HTMLDivElement | null) => {
+    stageRef.current = el;
+    setStageEl(el);
+  }, []);
+
+  /** Patient space (240 x 240) to pixels in the stage. */
+  const toStage = useCallback(
+    (p: Point) => {
+      const box = toPx({
+        x: EXAM_PATIENT_BOX.x + (p[0] / 240) * EXAM_PATIENT_BOX.w,
+        y: EXAM_PATIENT_BOX.y + (p[1] / 240) * EXAM_PATIENT_BOX.h,
+        w: 0,
+        h: 0,
+      });
+      return box ? { x: box.left, y: box.top } : null;
+    },
+    [toPx],
+  );
+
+  /** A screen point to patient space; null when it lands well away from the patient. */
+  const clientToPatient = useCallback((clientX: number, clientY: number): Point | null => {
+    const svg = roomRef.current?.querySelector<SVGSVGElement>('.exam__patient');
+    if (!svg) return null;
+    const r = svg.getBoundingClientRect();
+    const pad = r.width * 0.1;
+    if (clientX < r.left - pad || clientX > r.right + pad || clientY < r.top - pad || clientY > r.bottom + pad) return null;
+    return [((clientX - r.left) / r.width) * 240, ((clientY - r.top) / r.height) * 240];
+  }, []);
 
   // The patient's introduction plays as soon as the room opens; any tap interrupts it.
   useEffect(() => {
-    player.play(def.intro, () => {
-      introDone.current = true;
-    });
-    lastTouch.current = Date.now();
+    player.play(def.intro);
     // Only on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Now and then, while nobody is tapping, the patient does their idle thing (a hiccup, a sneeze...).
   useEffect(() => {
-    if (paused) return;
-    const id = window.setInterval(() => {
-      if (player.busyRef.current) return;
-      if (Date.now() - lastTouch.current < 4500) return;
-      const idle = def.idle(visitRef.current, propsRef.current);
-      if (idle) player.play(idle);
-    }, calm ? 7000 : 5200);
+    if (paused || chartOpen) return;
+    const id = window.setInterval(
+      () => {
+        if (player.busyRef.current || activityRef.current) return;
+        if (Date.now() - lastTouch.current < 4500) return;
+        const idle = def.idle(visitRef.current, propsRef.current);
+        if (idle) player.play(idle);
+      },
+      calm ? 7000 : 5200,
+    );
     return () => window.clearInterval(id);
-  }, [def, player, calm, paused]);
+  }, [def, player, calm, paused, chartOpen]);
 
-  // A one-time demonstration: the stethoscope floats to the patient and back, then a soft glow if still needed.
+  // Optional conversation starters for a grown-up and child, now and then. Easy to ignore.
   useEffect(() => {
-    if (session.examDemoShown || paused) return;
-    const showDemo = window.setTimeout(() => {
-      if (interacted.current || session.examDemoShown) return;
-      const button = toolButtons.current.stethoscope;
-      const patientSvg = roomRef.current?.querySelector<SVGSVGElement>('.exam__patient');
-      if (!button || !patientSvg) return;
-      session.examDemoShown = true;
-      const b = button.getBoundingClientRect();
-      const p = patientSvg.getBoundingClientRect();
-      const chest = def.anchors[def.toolTarget.stethoscope] ?? [120, 160];
-      setDemoHint({
-        from: [b.left + b.width / 2, b.top + b.height / 2],
-        to: [p.left + (chest[0] / 240) * p.width, p.top + (chest[1] / 240) * p.height],
-      });
-    }, 6500);
+    if (paused || chartOpen) return;
+    let timer = 0;
+    const schedule = (delay: number) => {
+      timer = window.setTimeout(() => {
+        if (promptIndex.current >= def.story.prompts.length) return;
+        const text = def.story.prompts[promptIndex.current]!;
+        promptIndex.current += 1;
+        setBubble({ kind: 'prompt', text, key: promptIndex.current });
+        schedule(PROMPT_EVERY_MS);
+      }, delay);
+    };
+    schedule(promptIndex.current === 0 ? PROMPT_FIRST_MS : PROMPT_EVERY_MS);
+    return () => window.clearTimeout(timer);
+  }, [def, paused, chartOpen]);
+
+  // If nobody has tapped anything for a while, the Listen button lifts gently.
+  useEffect(() => {
+    if (paused) return;
     const glow = window.setTimeout(() => {
       if (!interacted.current) setHintTool('stethoscope');
-    }, 17000);
-    return () => {
-      window.clearTimeout(showDemo);
-      window.clearTimeout(glow);
-    };
-  }, [def, paused]);
+    }, 14000);
+    return () => window.clearTimeout(glow);
+  }, [paused]);
 
   const touch = () => {
     lastTouch.current = Date.now();
     interacted.current = true;
     setHintTool(null);
-    setDemoHint(null);
   };
 
   const finishReady = canFinish(visit);
   useEffect(() => {
     if (finishReady && !finishAnnounced.current) {
       finishAnnounced.current = true;
-      announce(`${def.name.split(' ')[0]} is feeling better. The heart button at the bottom finishes the visit.`);
+      announce(`${firstName} is feeling better. The "Feeling better" button finishes the visit whenever you like.`);
     }
-  }, [finishReady, announce, def]);
+  }, [finishReady, announce, firstName]);
 
   const run = useCallback(
-    (event: VisitEvent, point: Point | null = null) => {
-      const out = applyEvent(def, visitRef.current, event, propsRef.current, selected, point);
+    (event: VisitEvent, point: Point | null = null, onDone?: () => void) => {
+      const out = applyEvent(def, visitRef.current, event, propsRef.current, point);
       visitRef.current = out.visit;
       setVisit(out.visit);
-      player.play(out.reaction);
+      player.play(out.reaction, onDone);
+      if (out.discovered) {
+        setChartBump((k) => k + 1);
+        const found = def.chart.discoveries.find((d) => d.id === out.discovered);
+        if (found) announce(`New on ${firstName}'s chart: ${found.label}.`);
+      }
     },
-    [def, player, selected],
+    [def, player, announce, firstName],
   );
 
-  const applyTool = (tool: AnyToolId, point: Point | null) => {
+  const pushHistory = () => {
+    // Capture now: by the time React applies the update, the visit has already changed.
+    const before = visitRef.current.bandages;
+    setHistory((h) => [...h.slice(-19), before]);
+  };
+
+  const lookTarget = (point: Point | null): LookTarget => {
+    if (!point) return timesUsed(visitRef.current, 'look:ear') > timesUsed(visitRef.current, 'look:throat') ? 'throat' : 'ear';
+    const ear = def.anchors.ear ?? [180, 90];
+    const mouth = def.anchors.mouth ?? [120, 130];
+    return distance(point, mouth) < distance(point, ear) ? 'throat' : 'ear';
+  };
+
+  const applyToolAt = (tool: ToolId, point: Point | null) => {
     touch();
-    if (tool === 'bandage') {
-      const spot = nearestBandageSpot(def.bandageSpots, point);
-      run({ type: 'bandage', spot: spot.id, style: bandageStyle }, point);
-    } else if (tool === 'pretendShot') {
-      run({ type: 'special' }, point);
-      setSelected(null);
-      setTray('none');
-    } else {
-      run({ type: 'tool', tool }, point);
+    setBubble((b) => (b?.kind === 'story' ? null : b));
+    switch (tool) {
+      case 'bandage': {
+        const at = point ?? def.anchors.chest ?? [120, 160];
+        pushHistory();
+        if (selectedBandage !== null) {
+          run({ type: 'moveBandage', id: selectedBandage, at }, at);
+          setSelectedBandage(null);
+        } else {
+          run({ type: 'bandage', at, style: bandageStyle }, at);
+        }
+        return;
+      }
+      case 'light':
+        run({ type: 'look', target: lookTarget(point) }, point);
+        return;
+      default:
+        run({ type: 'tool', tool }, point);
     }
   };
 
   const onPatientTap = (point: Point | null) => {
-    if (selected) applyTool(selected, point);
-    else {
-      touch();
-      run({ type: 'poke' }, point);
-    }
+    touch();
+    if (patientTap.current?.(point)) return;
+    if (selected) applyToolAt(selected, point);
+    else run({ type: 'poke' }, point);
+  };
+
+  const showDemo = (tool: ToolId) => {
+    if (session.toolDemos.has(tool) || calm) return;
+    session.toolDemos.add(tool);
+    const button = toolButtons.current[tool];
+    const patientSvg = roomRef.current?.querySelector<SVGSVGElement>('.exam__patient');
+    if (!button || !patientSvg) return;
+    const b = button.getBoundingClientRect();
+    const p = patientSvg.getBoundingClientRect();
+    const target = def.toolZones?.[tool as Exclude<ToolId, 'bandage'>]?.[0] ?? (tool === 'bandage' ? def.anchors.chest : def.anchors[def.toolTarget[tool as Exclude<ToolId, 'bandage'>]]) ?? [120, 160];
+    setDemo({ tool, from: [b.left + b.width / 2, b.top + b.height / 2], to: [p.left + (target[0] / 240) * p.width, p.top + (target[1] / 240) * p.height] });
   };
 
   const onSelectTool = (tool: ToolId) => {
     touch();
+    setComfortOpen(false);
+    setSelectedBandage(null);
     if (selected === tool) {
       setSelected(null);
-      setTray('none');
       playSound('tap');
       return;
     }
     playSound('select');
     setSelected(tool);
-    setTray(tool === 'bandage' ? 'bandage' : 'none');
     setPulseTargets(true);
-    announce(`${TOOL_LABELS[tool]} picked up. Tap ${def.name.split(' ')[0]} to use it.`);
-  };
-
-  const onSelectSpecial = () => {
-    if (!def.special) return;
-    touch();
-    if (selected === def.special.tool) {
-      setSelected(null);
-      setTray('none');
-      return;
-    }
-    playSound('select');
-    setSelected(def.special.tool);
-    setTray('comfort');
-    player.play(def.special.onSelect({ visit: visitRef.current, props: propsRef.current, selectedTool: def.special.tool, use: 1 }));
+    showDemo(tool);
+    announce(
+      tool === 'bandage'
+        ? `Bandages. Pick a pattern, then tap ${firstName} anywhere to stick one on.`
+        : tool === 'light'
+          ? `Light picked up. Tap ${firstName}'s ear or mouth.`
+          : `${TOOL_NAMES[tool]} picked up. Tap ${firstName} to use it.`,
+    );
   };
 
   const onComfortChoice = (choice: ComfortId) => {
     touch();
     playSound('tap');
+    setComfortOpen(false);
+    setSelected(null);
     run({ type: 'comfort', choice });
-    setTray('none');
-    if (choice === 'pause') setSelected(null);
   };
 
-  const onDrop = (tool: ToolId, clientX: number, clientY: number): boolean => {
-    const svg = roomRef.current?.querySelector<SVGSVGElement>('.exam__patient');
-    if (!svg) return false;
-    const r = svg.getBoundingClientRect();
-    const pad = r.width * 0.12;
-    if (clientX < r.left - pad || clientX > r.right + pad || clientY < r.top - pad || clientY > r.bottom + pad) {
+  const onDropTool = (tool: ToolId, clientX: number, clientY: number) => {
+    const point = clientToPatient(clientX, clientY);
+    if (!point) {
       playSound('tap');
-      return false;
+      return;
     }
-    const point: Point = [((clientX - r.left) / r.width) * 240, ((clientY - r.top) / r.height) * 240];
-    if (tool === 'bandage') setTray('bandage');
-    applyTool(tool, point);
-    return true;
+    setSelected(tool);
+    applyToolAt(tool, point);
   };
 
-  const stopAll = () => {
+  const onDropBandageStyle = (style: BandageStyle, clientX: number, clientY: number) => {
+    const point = clientToPatient(clientX, clientY);
+    setBandageStyle(style);
+    if (!point) return;
+    touch();
+    pushHistory();
+    run({ type: 'bandage', at: point, style }, point);
+  };
+
+  const undoBandage = () => {
+    touch();
+    const previous = history[history.length - 1];
+    if (!previous) return;
+    setHistory((h) => h.slice(0, -1));
+    setSelectedBandage(null);
+    run({ type: 'setBandages', bandages: previous });
+    announce('Undone.');
+  };
+
+  const removeBandage = () => {
+    if (selectedBandage === null) return;
+    touch();
+    pushHistory();
+    run({ type: 'removeBandage', id: selectedBandage });
+    setSelectedBandage(null);
+  };
+
+  const openActivity = (id: ActivityId) => {
+    touch();
+    playSound('select');
     player.stop();
     setSelected(null);
-    setTray('none');
+    setComfortOpen(false);
+    setSelectedBandage(null);
+    setBubble((b) => (b?.kind === 'story' ? null : b));
+    setActivity(id);
+  };
+
+  const clearDemo = useCallback(() => setDemo(null), []);
+  const hideBubble = useCallback(() => setBubble(null), []);
+
+  const closeActivity = useCallback(() => {
+    patientTap.current = null;
+    setHighlights(null);
+    setActivity(null);
+  }, []);
+
+  const tapRoom = (prop: RoomProp) => {
+    touch();
+    switch (prop) {
+      case 'lamp': {
+        const on = !room.lamp;
+        setRoom((r) => ({ ...r, lamp: on }));
+        playSound('click');
+        if (on && !activityRef.current) player.play([{ ms: 700, expression: 'calm', look: 'up' }, { ms: 500, expression: 'happy', look: null }]);
+        announce(on ? 'The lamp is on.' : 'The lamp is off.');
+        break;
+      }
+      case 'poster':
+        setRoom((r) => ({ ...r, poster: (r.poster + 1) % POSTER_COUNT }));
+        playSound('page');
+        announce('A new poster!');
+        break;
+      case 'sink':
+        setRoom((r) => ({ ...r, sink: r.sink + 1 }));
+        playSound('splash');
+        announce('Bubbles float up from the sink!');
+        break;
+      case 'cabinet':
+        setRoom((r) => ({ ...r, cabinet: !r.cabinet }));
+        playSound(room.cabinet ? 'bonk' : 'boing');
+        announce(room.cabinet ? 'The cabinet is closed.' : 'The cabinet is open: cotton balls, a rubber duck, and spare bandages.');
+        break;
+    }
+  };
+
+  /** Stops everything at once: used by every exit. */
+  const stopAll = () => {
+    player.stop();
+    patientTap.current = null;
+    setActivity(null);
+    setChartOpen(false);
+    setSelected(null);
+    setComfortOpen(false);
+    setBubble(null);
+  };
+
+  const finish = () => {
+    stopAll();
+    playSound('jingle');
+    onComplete(patientId);
+  };
+
+  const api: ActivityApi = {
+    def,
+    visit,
+    props: player.props,
+    act: (key, reaction, options) => {
+      touch();
+      run({ type: 'act', key, reaction, helped: options?.helped, meaningful: options?.meaningful, shot: options?.shot }, null, options?.onDone);
+    },
+    play: (reaction: Reaction, onDone?: () => void) => player.play(reaction, onDone),
+    placeBandage: (at, style) => {
+      pushHistory();
+      run({ type: 'bandage', at, style }, at);
+    },
+    close: closeActivity,
+    toStage,
+    clientToPatient,
+    setPatientTap: (handler) => {
+      patientTap.current = handler;
+    },
+    setHighlights,
+    stage: stageEl,
+    sound: playSound,
+    announce,
+    calm,
   };
 
   const bandageExtras = useMemo<ExtraShapes[]>(
     () =>
-      visit.bandages.map((b) => {
-        const spot = def.bandageSpots.find((s) => s.id === b.spot) ?? def.bandageSpots[0]!;
-        return { part: spot.part, shapes: bandageShapes(b.style, spot.at, spot.rotate, spot.scale ?? 0.7) };
-      }),
-    [visit.bandages, def],
+      visit.bandages
+        .filter((b) => b.id !== draggedBandage)
+        .map((b) => ({ part: b.part, shapes: bandageShapes(b.style, [b.x, b.y], b.rotate, 0.7) })),
+    [visit.bandages, draggedBandage],
   );
 
-  const activeTool: AnyToolId | null = dragging ?? selected;
+  const activeTool = dragging ?? selected;
   const targetPoints: Point[] = useMemo(() => {
+    if (highlights) return highlights;
     if (!activeTool) return [];
-    if (activeTool === 'bandage') return def.bandageSpots.map((s) => s.at);
-    if (activeTool === 'pretendShot') return [def.anchors.arm ?? [150, 190]];
+    if (activeTool === 'bandage') return pulseTargets ? def.bandageZones.map((z) => z.at) : [];
+    const zones = def.toolZones?.[activeTool];
+    if (zones) return zones;
     const anchor = def.anchors[def.toolTarget[activeTool]];
     return anchor ? [anchor] : [];
-  }, [activeTool, def]);
+  }, [activeTool, def, highlights, pulseTargets]);
 
   useEffect(() => {
     if (!pulseTargets) return;
@@ -250,34 +453,27 @@ export function ExamScreen({
   }, [pulseTargets]);
 
   const expression = player.visual.expression ?? def.restingExpression(visit);
-  const firstName = def.name.split(' ')[0];
-  const comfortGlow = (def.id === 'prickle' && !visit.comforted) || selected === 'pretendShot';
+  const ActivityView = activity ? ACTIVITY_COMPONENTS[activity] : null;
+  const comfortGlow = def.id === 'prickle' && !visit.comforted && visit.interactions > 0;
+  const suggested: ActivityId | null = interacted.current ? null : def.activities[0]?.id ?? null;
 
   return (
-    <div className="screen exam" style={{ ['--room-tint' as string]: def.roomTint }}>
+    <div className="screen exam" style={{ ['--room-tint' as string]: def.roomTint }} data-patient={def.id}>
       <TopBar
         onHome={() => {
           stopAll();
           onWaitingRoom();
         }}
         homeLabel="Back to the waiting room"
-        onStickers={onStickers}
+        onBook={onBook}
         onGrownUps={onGrownUps}
         bookKey={bookKey}
       />
-      <main className="exam__stage" ref={stageRef}>
+      <main className={`exam__stage${selected === 'bandage' ? ' is-decorating' : ''}`} ref={setStage}>
         <svg ref={roomRef} viewBox={EXAM_VIEWBOX} preserveAspectRatio="xMidYMid slice" className="scene__svg" aria-hidden="true">
-          <ExamRoomBackdrop tint={def.roomTint} chartKey={chartKey} />
-          {def.special ? (
-            <g>
-              <ShotTray empty={selected === def.special.tool} />
-              {selected === def.special.tool ? null : (
-                <g transform="translate(4 410) scale(0.8)" className="tray-shot">
-                  <ToolArt tool={def.special.tool} />
-                </g>
-              )}
-            </g>
-          ) : null}
+          <ExamRoomBackdrop tint={def.roomTint} />
+          <RoomProps room={room} />
+          <LampLight on={room.lamp} />
           <svg
             className="exam__patient"
             x={EXAM_PATIENT_BOX.x}
@@ -296,26 +492,38 @@ export function ExamScreen({
               actionKey={player.visual.actionKey}
               extras={bandageExtras}
             />
-            {targetPoints.length && !player.visual.toolAt ? <TargetRings points={targetPoints} pulse={pulseTargets} /> : null}
-            {player.visual.toolAt ? (
-              <ToolSprite tool={player.visual.toolAt.tool} at={def.anchors[player.visual.toolAt.at] ?? [120, 140]} />
-            ) : null}
-            {player.visual.demo ? (
-              def.id === 'prickle' ? (
-                <ToolSprite tool={player.visual.demo.tool} at={def.anchors[player.visual.demo.at] ?? [120, 180]} />
-              ) : (
-                <DemoProp plush={def.plush} tool={player.visual.demo.tool} at={def.anchors[player.visual.demo.at] ?? [214, 212]} />
-              )
-            ) : null}
+            {targetPoints.length && !player.visual.toolAt ? <TargetRings points={targetPoints} pulse={pulseTargets} small={activeTool === 'bandage'} /> : null}
+            {player.visual.item ? <ItemSprite kind={player.visual.item.kind} at={def.anchors[player.visual.item.at] ?? [210, 200]} /> : null}
+            {player.visual.toolAt ? <ToolSprite tool={player.visual.toolAt.tool} at={def.anchors[player.visual.toolAt.at] ?? [120, 140]} /> : null}
             <EffectsLayer effects={player.effects} />
           </svg>
         </svg>
+
+        {(Object.keys(ROOM_PROP_BOXES) as RoomProp[]).map((prop) => (
+          <button
+            key={prop}
+            type="button"
+            className={`hotspot hotspot--room hotspot--${prop}`}
+            style={pxStyle(toPx(ROOM_PROP_BOXES[prop]))}
+            aria-label={ROOM_LABELS[prop]}
+            aria-pressed={prop === 'lamp' ? room.lamp : prop === 'cabinet' ? room.cabinet : undefined}
+            onClick={() => tapRoom(prop)}
+          />
+        ))}
 
         <button
           type="button"
           className={`patient-hit${selected ? ' has-tool' : ''}`}
           style={pxStyle(patientPx)}
-          aria-label={selected ? `Use the ${TOOL_LABELS[selected].toLowerCase()} on ${firstName}` : `Say hi to ${firstName}`}
+          aria-label={
+            selected === 'bandage'
+              ? selectedBandage !== null
+                ? `Move the picked-up bandage on ${firstName}`
+                : `Stick a bandage on ${firstName}`
+              : selected
+                ? `Use the ${TOOL_NAMES[selected].toLowerCase()} on ${firstName}`
+                : `Say hi to ${firstName}`
+          }
           onClick={(e) => {
             if (e.detail === 0) {
               onPatientTap(null);
@@ -325,28 +533,42 @@ export function ExamScreen({
             onPatientTap([((e.clientX - r.left) / r.width) * 240, ((e.clientY - r.top) / r.height) * 240]);
           }}
         />
-        {def.special && trayPx ? (
-          <button
-            type="button"
-            className={`hotspot hotspot--tray${selected === def.special.tool ? ' is-selected' : ''}`}
-            style={pxStyle(trayPx, 10)}
-            aria-label={selected === def.special.tool ? 'Put the pretend shot back on the tray' : 'Pick up the pretend shot. Prickle can finish the visit without it.'}
-            aria-pressed={selected === def.special.tool}
-            onClick={onSelectSpecial}
+
+        {selected === 'bandage' && !activity ? (
+          <BandageHandles
+            bandages={visit.bandages}
+            selectedId={selectedBandage}
+            toStage={toStage}
+            clientToPatient={clientToPatient}
+            scale={unit}
+            onSelect={(id) => {
+              touch();
+              playSound(id === null ? 'tap' : 'select');
+              setSelectedBandage(id);
+              if (id !== null) announce('Bandage picked up. Tap the patient where it should go, or remove it.');
+            }}
+            onMove={(id, to) => {
+              touch();
+              pushHistory();
+              run({ type: 'moveBandage', id, at: to }, to);
+              setSelectedBandage(null);
+            }}
+            onDragChange={setDraggedBandage}
           />
         ) : null}
-        <button
-          type="button"
-          className="hotspot"
-          style={pxStyle(chartPx)}
-          aria-label="Tap the shape chart"
-          onClick={() => {
+
+        <ChartButton
+          def={def}
+          visit={visit}
+          bumpKey={chartBump}
+          onOpen={() => {
             touch();
-            playSound('boing');
-            setChartKey((k) => k + 1);
-            announce('The shapes on the chart wiggle!');
+            playSound('page');
+            setChartOpen(true);
           }}
         />
+
+        {bubble ? <StoryBubble message={bubble} onDone={hideBubble} /> : null}
 
         {player.visual.popup ? (
           <div className={`popup popup--${player.visual.popup.kind}`} aria-hidden="true">
@@ -354,62 +576,72 @@ export function ExamScreen({
           </div>
         ) : null}
 
-        {tray === 'bandage' ? (
-          <div className="context-tray" role="group" aria-label="Choose a bandage">
-            {BANDAGE_STYLES.map((style) => (
-              <button
-                key={style}
-                type="button"
-                className={`choice-btn choice-btn--bandage${bandageStyle === style ? ' is-selected' : ''}`}
-                aria-label={BANDAGE_LABELS[style]}
-                aria-pressed={bandageStyle === style}
-                onClick={() => {
-                  touch();
-                  playSound('tap');
-                  setBandageStyle(style);
-                  setPulseTargets(true);
-                }}
-              >
-                <svg viewBox="-36 -20 72 40" aria-hidden="true">
-                  <ShapeList shapes={bandageShapes(style, [0, 0], -10, 1.1)} />
-                </svg>
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {tray === 'comfort' ? (
-          <div className="context-tray context-tray--comfort" role="group" aria-label="Comfort choices">
-            {COMFORT_IDS.map((choice) => (
-              <button key={choice} type="button" className="choice-btn" aria-label={COMFORT_LABELS[choice]} onClick={() => onComfortChoice(choice)}>
-                <ComfortArt choice={choice} plush={def.plush} tool={selected ?? 'stethoscope'} />
-              </button>
-            ))}
-          </div>
+        {!activity && selected !== 'bandage' && !comfortOpen ? (
+          <AdventureShelf activities={def.activities} onOpen={openActivity} glow={suggested} />
         ) : null}
 
+        {selected === 'bandage' && !activity ? (
+          <BandageTray
+            style={bandageStyle}
+            onStyle={(s) => {
+              touch();
+              setBandageStyle(s);
+              setPulseTargets(true);
+            }}
+            onDropStyle={onDropBandageStyle}
+            canUndo={history.length > 0}
+            onUndo={undoBandage}
+            selectedBandage={selectedBandage}
+            onRemove={removeBandage}
+          />
+        ) : null}
+        {comfortOpen && !activity ? <ComfortTray labels={def.comfortLabels} plush={def.plush} onChoose={onComfortChoice} /> : null}
       </main>
-      {demoHint ? <DemoGhost from={demoHint.from} to={demoHint.to} calm={calm} onDone={() => setDemoHint(null)} /> : null}
-      <Toolbar
-        selected={selected}
-        comfortOpen={tray === 'comfort'}
-        comfortGlow={comfortGlow}
-        hintTool={hintTool}
-        onSelect={onSelectTool}
-        onComfort={() => {
-          touch();
-          playSound('tap');
-          setTray((t) => (t === 'comfort' ? 'none' : 'comfort'));
-        }}
-        onDragStart={(tool) => {
-          touch();
-          setDragging(tool);
-        }}
-        onDragEnd={() => setDragging(null)}
-        onDrop={onDrop}
-        registerButton={(tool, el) => {
-          toolButtons.current[tool] = el;
-        }}
-      />
+
+      {demo ? <DemoGhost tool={demo.tool} from={demo.from} to={demo.to} calm={calm} onDone={clearDemo} /> : null}
+
+      <div className="exam__controls">
+        {ActivityView ? (
+          <ActivityView key={activity} api={api} />
+        ) : (
+          <Toolbar
+            selected={selected}
+            comfortOpen={comfortOpen}
+            comfortGlow={comfortGlow}
+            hintTool={hintTool}
+            plush={def.plush}
+            onSelect={onSelectTool}
+            onComfort={() => {
+              touch();
+              playSound('tap');
+              setSelected(null);
+              setComfortOpen((open) => !open);
+            }}
+            onDragStart={(tool) => {
+              touch();
+              setDragging(tool);
+            }}
+            onDragEnd={() => setDragging(null)}
+            onDrop={onDropTool}
+            registerButton={(tool, el) => {
+              toolButtons.current[tool] = el;
+            }}
+          />
+        )}
+      </div>
+
+      {chartOpen ? (
+        <ChartPanel
+          def={def}
+          visit={visit}
+          onClose={() => {
+            playSound('tap');
+            setChartOpen(false);
+          }}
+          onStamp={finish}
+        />
+      ) : null}
+
       <BottomBar
         onExit={() => {
           stopAll();
@@ -417,15 +649,7 @@ export function ExamScreen({
         }}
         right={
           finishReady ? (
-            <button
-              type="button"
-              className="finish-btn"
-              onClick={() => {
-                stopAll();
-                playSound('jingle');
-                onComplete(patientId);
-              }}
-            >
+            <button type="button" className="finish-btn" onClick={finish}>
               <HeartCheckIcon className="finish-btn__icon" />
               <span className="finish-btn__text">Feeling better!</span>
             </button>
@@ -436,8 +660,8 @@ export function ExamScreen({
   );
 }
 
-/** The one-time "here's how" demonstration: a stethoscope floats to the patient and back. */
-function DemoGhost({ from, to, calm, onDone }: { from: Point; to: Point; calm: boolean; onDone: () => void }) {
+/** A quick "here's how": the tool floats from its button to the patient and back, once per tool. */
+function DemoGhost({ tool, from, to, calm, onDone }: { tool: ToolId; from: Point; to: Point; calm: boolean; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -448,20 +672,20 @@ function DemoGhost({ from, to, calm, onDone }: { from: Point; to: Point; calm: b
     let anim: Animation | null = null;
     if (calm || !el.animate) {
       el.style.transform = at(tx, ty);
-      anim = el.animate?.([{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0.9 }, { opacity: 0 }], { duration: 2200 }) ?? null;
+      anim = el.animate?.([{ opacity: 0 }, { opacity: 0.9 }, { opacity: 0.9 }, { opacity: 0 }], { duration: 1600 }) ?? null;
     } else {
       anim = el.animate(
         [
           { transform: at(fx, fy, 0.9), opacity: 0 },
-          { transform: at(fx, fy - 30, 1.05), opacity: 0.95, offset: 0.15 },
+          { transform: at(fx, fy - 24, 1.05), opacity: 0.95, offset: 0.15 },
           { transform: at(tx, ty, 1), opacity: 0.95, offset: 0.5 },
-          { transform: at(tx, ty, 1), opacity: 0.95, offset: 0.68 },
-          { transform: at(fx, fy, 0.9), opacity: 0 },
+          { transform: at(tx, ty, 1), opacity: 0.95, offset: 0.7 },
+          { transform: at(tx, ty, 0.9), opacity: 0 },
         ],
-        { duration: 2600, easing: 'ease-in-out' },
+        { duration: 1700, easing: 'ease-in-out' },
       );
     }
-    const t = window.setTimeout(onDone, calm ? 2300 : 2700);
+    const t = window.setTimeout(onDone, 1800);
     return () => {
       anim?.cancel();
       window.clearTimeout(t);
@@ -469,7 +693,7 @@ function DemoGhost({ from, to, calm, onDone }: { from: Point; to: Point; calm: b
   }, [from, to, calm, onDone]);
   return (
     <div ref={ref} className="demo-ghost" aria-hidden="true">
-      <ToolIcon tool="stethoscope" />
+      <ToolIcon tool={tool} />
       <span className="demo-ghost__hand">
         <HandArt />
       </span>

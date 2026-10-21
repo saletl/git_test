@@ -2,7 +2,7 @@ import type { CreatureArtist, CreatureProps } from './creature';
 import { plushShapes } from './creature';
 import { faceParts, type Expression, type Look } from './face';
 import { C } from './palette';
-import { circle, ellipse, fill, line, mirror, rrect, smooth, transformShapes, type Point, type Shape } from './shapes';
+import { circle, curve, ellipse, fill, line, mirror, rrect, smooth, transformShapes, type Point, type Shape } from './shapes';
 
 /** Mochi the Monster: silly, mischievous, affectionate. Has a sock stuck on its head. */
 
@@ -76,7 +76,9 @@ function sockBase(): Shape[] {
   ];
 }
 
-export type SockSpot = 'head' | 'eye' | 'giant' | 'off';
+export type SockSpot = 'head' | 'eye' | 'giant' | 'off' | 'horn' | 'ear' | 'foot';
+export const SOCK_SPOTS: readonly SockSpot[] = ['head', 'eye', 'giant', 'off', 'horn', 'ear', 'foot'];
+export type MochiHat = 'none' | 'party' | 'crown' | 'bow';
 
 export function sockShapes(spot: SockSpot): Shape[] {
   switch (spot) {
@@ -86,14 +88,54 @@ export function sockShapes(spot: SockSpot): Shape[] {
       return transformShapes(sockBase(), { rotate: 34, translate: [104, 52] });
     case 'giant':
       return transformShapes(sockBase(), { scale: 1.55, rotate: -6, translate: [70, 46] });
+    case 'horn':
+      return transformShapes(sockBase(), { scale: 0.62, rotate: 76, translate: [156, 40] });
+    case 'ear':
+      return transformShapes(sockBase(), { scale: 0.5, rotate: 196, translate: [52, 106] });
+    case 'foot':
+      return transformShapes(sockBase(), { scale: 0.44, rotate: -4, translate: [134, 222] });
     case 'off':
       return [];
+  }
+}
+
+/** Hats to swap in for the sock, plus a tiny tuft of fluff when the head is bare. */
+export function hatShapes(hat: MochiHat, bare: boolean): Shape[] {
+  switch (hat) {
+    case 'party':
+      return [
+        fill(smooth([[100, 78], [124, 22], [146, 76]], true, 0.15), C.blueLight, C.blueDeep, 2.6),
+        line(curve([108, 62], [124, 58], [140, 60]), C.coral, 4),
+        line(curve([114, 46], [124, 43], [134, 45]), C.gold, 4),
+        fill(circle(124, 20, 7), C.berry, C.ink, 2),
+      ];
+    case 'crown':
+      return [
+        fill('M94 78L92 46L106 60L120 40L134 60L148 46L146 78Z', C.gold, C.goldDeep, 2.6),
+        fill(circle(120, 66, 5), C.berry),
+        fill(circle(104, 70, 3.4), C.blue),
+        fill(circle(136, 70, 3.4), C.mint),
+      ];
+    case 'bow':
+      return [
+        fill(smooth([[120, 66], [94, 50], [92, 76]], true, 0.4), C.coral, C.coralDeep, 2.6),
+        fill(smooth([[120, 66], [146, 50], [148, 76]], true, 0.4), C.coral, C.coralDeep, 2.6),
+        fill(ellipse(120, 66, 8, 9), C.berry, C.coralDeep, 2.4),
+      ];
+    case 'none':
+      return bare
+        ? [
+            line(curve([116, 76], [110, 62], [118, 56]), C.lilacDeep, 4),
+            line(curve([122, 76], [124, 60], [132, 58]), C.lilacDeep, 4),
+          ]
+        : [];
   }
 }
 
 export const mochiArt: CreatureArtist = {
   draw(expression: Expression, look: Look | undefined, props: CreatureProps) {
     const sock = (typeof props.sock === 'string' ? props.sock : 'head') as SockSpot;
+    const hat = (typeof props.hat === 'string' ? props.hat : 'none') as MochiHat;
     const face = faceParts(
       {
         eyes: [
@@ -195,6 +237,7 @@ export const mochiArt: CreatureArtist = {
         },
         { part: 'hugArms', shapes: hugging ? [...armL, ...armR] : [] },
         { part: 'sock', pivot: [110, 60], shapes: sockShapes(sock) },
+        { part: 'hat', pivot: [120, 70], shapes: hatShapes(hat, sock !== 'head' && sock !== 'eye' && sock !== 'giant') },
       ],
     };
   },

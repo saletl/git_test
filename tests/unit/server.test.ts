@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { MockProvider, ResendProvider, type EmailProvider } from '../../server/emailProviders';
 import { MailerLiteNewsletter, type NewsletterService } from '../../server/mailerlite';
 import { MemoryRateLimiter } from '../../server/rateLimit';
-import { handleStickerBookEmail, type HandlerDeps } from '../../server/stickerBookEmail';
-import { stickerBookEmail } from '../../server/emailTemplate';
+import { handleColoringBookEmail, type HandlerDeps } from '../../server/coloringBookEmail';
+import { coloringBookEmail } from '../../server/emailTemplate';
 
 const ORIGIN = 'https://clinic.example.org';
 
@@ -20,14 +20,14 @@ function deps(overrides: Partial<HandlerDeps> = {}): HandlerDeps & { provider: M
 }
 
 function post(body: unknown, headers: Record<string, string> = {}) {
-  return new Request(`${ORIGIN}/api/sticker-book/email`, {
+  return new Request(`${ORIGIN}/api/coloring-book/email`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: ORIGIN, ...headers },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
 
-const goodBody = { email: 'parent@example.com', stickers: [{ id: 'pip', slot: 0 }], newsletter: false, requestId: 'req-00000001' };
+const goodBody = { email: 'parent@example.com', pages: ['pip'], newsletter: false, requestId: 'req-00000001' };
 
 class SpyNewsletter implements NewsletterService {
   calls: string[] = [];
@@ -38,16 +38,16 @@ class SpyNewsletter implements NewsletterService {
   }
 }
 
-describe('sticker book email endpoint', () => {
+describe('future coloring book email endpoint (not deployed)', () => {
   it('sends one email with a PDF attachment', async () => {
     const d = deps();
-    const res = await handleStickerBookEmail(post(goodBody), d, '1.2.3.4');
+    const res = await handleColoringBookEmail(post(goodBody), d, '1.2.3.4');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, delivery: 'mock', newsletter: 'not_requested' });
     expect(d.provider.sent).toHaveLength(1);
     const sent = d.provider.sent[0]!;
     expect(sent.to).toBe('parent@example.com');
-    expect(sent.subject).toBe('Your Curious Creature Clinic sticker book!');
+    expect(sent.subject).toBe('Your Creature Clinic coloring book is here!');
     expect(new TextDecoder().decode(sent.attachment.content.slice(0, 5))).toBe('%PDF-');
     expect(sent.html).not.toContain('parent@example.com');
     expect(res.headers.get('access-control-allow-origin')).toBe(ORIGIN);
@@ -55,39 +55,39 @@ describe('sticker book email endpoint', () => {
 
   it('never contacts the newsletter service for email-only requests', async () => {
     const newsletter = new SpyNewsletter();
-    const res = await handleStickerBookEmail(post(goodBody), deps({ newsletter }), '1.2.3.4');
+    const res = await handleColoringBookEmail(post(goodBody), deps({ newsletter }), '1.2.3.4');
     expect((await res.json()).newsletter).toBe('not_requested');
     expect(newsletter.calls).toEqual([]);
   });
 
   it('offers the address to the newsletter only when the box was ticked', async () => {
     const newsletter = new SpyNewsletter();
-    const res = await handleStickerBookEmail(post({ ...goodBody, newsletter: true }), deps({ newsletter }), '1.2.3.4');
+    const res = await handleColoringBookEmail(post({ ...goodBody, newsletter: true }), deps({ newsletter }), '1.2.3.4');
     expect(await res.json()).toEqual({ ok: true, delivery: 'mock', newsletter: 'received' });
     expect(newsletter.calls).toEqual(['parent@example.com']);
   });
 
-  it('still delivers the sticker book if the newsletter service is down', async () => {
-    const res = await handleStickerBookEmail(post({ ...goodBody, newsletter: true }), deps({ newsletter: new SpyNewsletter('unavailable') }), '1.2.3.4');
+  it('still delivers the coloring book if the newsletter service is down', async () => {
+    const res = await handleColoringBookEmail(post({ ...goodBody, newsletter: true }), deps({ newsletter: new SpyNewsletter('unavailable') }), '1.2.3.4');
     expect(await res.json()).toEqual({ ok: true, delivery: 'mock', newsletter: 'unavailable' });
   });
 
   it('reports a friendly failure when delivery fails, without hiding the newsletter result', async () => {
-    const res = await handleStickerBookEmail(post({ ...goodBody, newsletter: true }), deps({ provider: new MockProvider(undefined, true), newsletter: new SpyNewsletter() }), '1.2.3.4');
+    const res = await handleColoringBookEmail(post({ ...goodBody, newsletter: true }), deps({ provider: new MockProvider(undefined, true), newsletter: new SpyNewsletter() }), '1.2.3.4');
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ ok: false, error: 'delivery_failed', newsletter: 'received' });
   });
 
   it('says so plainly when email is not set up', async () => {
-    const res = await handleStickerBookEmail(post(goodBody), deps({ provider: null }), '1.2.3.4');
+    const res = await handleColoringBookEmail(post(goodBody), deps({ provider: null }), '1.2.3.4');
     expect(res.status).toBe(503);
     expect((await res.json()).error).toBe('not_configured');
   });
 
   it('does not send twice when the same request is retried', async () => {
     const d = deps();
-    await handleStickerBookEmail(post(goodBody), d, '1.2.3.4');
-    const again = await handleStickerBookEmail(post(goodBody), d, '1.2.3.4');
+    await handleColoringBookEmail(post(goodBody), d, '1.2.3.4');
+    const again = await handleColoringBookEmail(post(goodBody), d, '1.2.3.4');
     expect(again.status).toBe(200);
     expect(d.provider.sent).toHaveLength(1);
   });
@@ -95,43 +95,43 @@ describe('sticker book email endpoint', () => {
   it('retries after a failure do not create duplicate newsletter sign-ups', async () => {
     const newsletter = new SpyNewsletter();
     const failing = deps({ provider: new MockProvider(undefined, true), newsletter });
-    await handleStickerBookEmail(post({ ...goodBody, newsletter: true }), failing, '1.2.3.4');
-    await handleStickerBookEmail(post({ ...goodBody, newsletter: true }), failing, '1.2.3.4');
+    await handleColoringBookEmail(post({ ...goodBody, newsletter: true }), failing, '1.2.3.4');
+    await handleColoringBookEmail(post({ ...goodBody, newsletter: true }), failing, '1.2.3.4');
     // The upsert is safe to repeat; MailerLite keys subscribers by email, so there is still one subscriber.
     expect(new Set(newsletter.calls).size).toBe(1);
   });
 
   it('rejects other websites, wrong methods, wrong content types and big bodies', async () => {
     const d = deps();
-    expect((await handleStickerBookEmail(post(goodBody, { origin: 'https://evil.example' }), d, null)).status).toBe(403);
-    expect((await handleStickerBookEmail(new Request(`${ORIGIN}/api/sticker-book/email`, { method: 'GET', headers: { origin: ORIGIN } }), d, null)).status).toBe(405);
-    expect((await handleStickerBookEmail(post(goodBody, { 'content-type': 'text/plain' }), d, null)).status).toBe(415);
+    expect((await handleColoringBookEmail(post(goodBody, { origin: 'https://evil.example' }), d, null)).status).toBe(403);
+    expect((await handleColoringBookEmail(new Request(`${ORIGIN}/api/coloring-book/email`, { method: 'GET', headers: { origin: ORIGIN } }), d, null)).status).toBe(405);
+    expect((await handleColoringBookEmail(post(goodBody, { 'content-type': 'text/plain' }), d, null)).status).toBe(415);
     const huge = JSON.stringify({ ...goodBody, website: 'x'.repeat(5000) });
-    expect((await handleStickerBookEmail(post(huge), d, null)).status).toBe(413);
-    expect((await handleStickerBookEmail(post('{oops'), d, null)).status).toBe(400);
+    expect((await handleColoringBookEmail(post(huge), d, null)).status).toBe(413);
+    expect((await handleColoringBookEmail(post('{oops'), d, null)).status).toBe(400);
     expect(d.provider.sent).toHaveLength(0);
   });
 
   it('rejects requests without an Origin header when an allowlist is set', async () => {
-    const req = new Request(`${ORIGIN}/api/sticker-book/email`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(goodBody) });
-    expect((await handleStickerBookEmail(req, deps(), null)).status).toBe(403);
+    const req = new Request(`${ORIGIN}/api/coloring-book/email`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(goodBody) });
+    expect((await handleColoringBookEmail(req, deps(), null)).status).toBe(403);
   });
 
   it('accepts same-host requests when no allowlist is set', async () => {
-    const res = await handleStickerBookEmail(post({ ...goodBody, requestId: 'req-same-host' }), deps({ allowedOrigins: [] }), null);
+    const res = await handleColoringBookEmail(post({ ...goodBody, requestId: 'req-same-host' }), deps({ allowedOrigins: [] }), null);
     expect(res.status).toBe(200);
   });
 
   it('answers CORS preflight only for allowed origins', async () => {
-    const ok = await handleStickerBookEmail(new Request(`${ORIGIN}/api/sticker-book/email`, { method: 'OPTIONS', headers: { origin: ORIGIN } }), deps(), null);
+    const ok = await handleColoringBookEmail(new Request(`${ORIGIN}/api/coloring-book/email`, { method: 'OPTIONS', headers: { origin: ORIGIN } }), deps(), null);
     expect(ok.status).toBe(204);
-    const bad = await handleStickerBookEmail(new Request(`${ORIGIN}/api/sticker-book/email`, { method: 'OPTIONS', headers: { origin: 'https://evil.example' } }), deps(), null);
+    const bad = await handleColoringBookEmail(new Request(`${ORIGIN}/api/coloring-book/email`, { method: 'OPTIONS', headers: { origin: 'https://evil.example' } }), deps(), null);
     expect(bad.status).toBe(403);
   });
 
   it('ignores the hidden bot field without sending anything', async () => {
     const d = deps();
-    const res = await handleStickerBookEmail(post({ ...goodBody, website: 'http://spam.example' }), d, null);
+    const res = await handleColoringBookEmail(post({ ...goodBody, website: 'http://spam.example' }), d, null);
     expect(res.status).toBe(400);
     expect(d.provider.sent).toHaveLength(0);
   });
@@ -140,7 +140,7 @@ describe('sticker book email endpoint', () => {
     const d = deps();
     const statuses: number[] = [];
     for (let i = 0; i < 5; i++) {
-      const res = await handleStickerBookEmail(post({ ...goodBody, requestId: `req-rate-${i}0000` }), d, `10.0.0.${i}`);
+      const res = await handleColoringBookEmail(post({ ...goodBody, requestId: `req-rate-${i}0000` }), d, `10.0.0.${i}`);
       statuses.push(res.status);
     }
     expect(statuses.slice(0, 3)).toEqual([200, 200, 200]);
@@ -152,7 +152,7 @@ describe('sticker book email endpoint', () => {
     const d = deps();
     const statuses: number[] = [];
     for (let i = 0; i < 8; i++) {
-      const res = await handleStickerBookEmail(post({ ...goodBody, email: `p${i}@example.com`, requestId: `req-ip-${i}00000` }), d, '9.9.9.9');
+      const res = await handleColoringBookEmail(post({ ...goodBody, email: `p${i}@example.com`, requestId: `req-ip-${i}00000` }), d, '9.9.9.9');
       statuses.push(res.status);
     }
     expect(statuses.filter((s) => s === 429).length).toBeGreaterThan(0);
@@ -160,7 +160,7 @@ describe('sticker book email endpoint', () => {
 
   it('never logs email addresses', async () => {
     const lines: string[] = [];
-    await handleStickerBookEmail(post({ ...goodBody, newsletter: true }), deps({ newsletter: new SpyNewsletter(), log: (e, data) => lines.push(JSON.stringify({ e, ...data })) }), '1.2.3.4');
+    await handleColoringBookEmail(post({ ...goodBody, newsletter: true }), deps({ newsletter: new SpyNewsletter(), log: (e, data) => lines.push(JSON.stringify({ e, ...data })) }), '1.2.3.4');
     expect(lines.join('\n')).not.toContain('parent@example.com');
     expect(lines.join('\n')).not.toContain('1.2.3.4');
   });
@@ -176,7 +176,7 @@ describe('Resend provider', () => {
     expect(url).toBe('https://api.resend.com/emails');
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer re_test');
-    expect(headers['Idempotency-Key']).toBe('sticker-book-abc');
+    expect(headers['Idempotency-Key']).toBe('coloring-book-abc');
     const body = JSON.parse(init.body as string);
     expect(body.to).toEqual(['parent@example.com']);
     expect(body.attachments[0]).toEqual({ filename: 'a.pdf', content: 'JVBERg==' });
@@ -201,7 +201,7 @@ describe('MailerLite newsletter', () => {
   }
   const when = new Date('2026-05-01T12:30:00Z');
 
-  it('creates new sign-ups as unconfirmed, in the sticker-book group, with the opt-in time', async () => {
+  it('creates new sign-ups as unconfirmed, in the coloring-book group, with the opt-in time', async () => {
     const f = fakeFetch({ status: 404 });
     const ml = new MailerLiteNewsletter({ apiKey: 'k', groupId: '123', doubleOptIn: true, fetchImpl: f.impl });
     expect(await ml.subscribe('parent@example.com', when)).toBe('received');
@@ -240,10 +240,10 @@ describe('MailerLite newsletter', () => {
 
 describe('email template', () => {
   it('uses the agreed copy and tells email-only recipients they were not added to a list', () => {
-    const plain = stickerBookEmail({ newsletterRequested: false });
+    const plain = coloringBookEmail({ newsletterRequested: false });
     expect(plain.text).toContain('Your little doctor did some important work today!');
     expect(plain.text).toContain("You haven't been added to any mailing list.");
-    const opted = stickerBookEmail({ newsletterRequested: true });
+    const opted = coloringBookEmail({ newsletterRequested: true });
     expect(opted.text).toContain('confirm');
   });
 });

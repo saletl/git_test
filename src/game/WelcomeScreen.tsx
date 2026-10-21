@@ -12,12 +12,12 @@ import type { PatientId } from './types';
 export function WelcomeScreen({
   office,
   onPlay,
-  onStickers,
+  onBook,
   onGrownUps,
 }: {
   office: OfficeConfig | null;
   onPlay: () => void;
-  onStickers: () => void;
+  onBook: () => void;
   onGrownUps: () => void;
 }) {
   const { unlock, play, announce } = useSettings();
@@ -31,7 +31,7 @@ export function WelcomeScreen({
 
   return (
     <div className="screen welcome">
-      <TopBar onStickers={onStickers} onGrownUps={onGrownUps} />
+      <TopBar onBook={onBook} onGrownUps={onGrownUps} />
       <main className="welcome__main">
         {office ? (
           <div className="welcome__office">

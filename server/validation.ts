@@ -1,4 +1,4 @@
-import { BOOK_SLOT_COUNT, STICKER_IDS, isSlotIndex, isStickerId, type PlacedSticker } from '../src/stickers/catalog';
+import { PAGE_IDS, isPageId, sortPages, type PageId } from '../src/coloring/catalog';
 
 export const MAX_BODY_BYTES = 4096;
 
@@ -27,42 +27,31 @@ export function isValidEmail(value: unknown): value is string {
 
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
-export interface StickerBookRequest {
+export interface ColoringBookRequest {
   email: string;
-  stickers: PlacedSticker[];
+  pages: PageId[];
   newsletter: boolean;
   requestId: string | null;
   /** Hidden field that only bots fill in. */
   trap: string;
 }
 
-export type ValidationResult = { ok: true; value: StickerBookRequest } | { ok: false; error: 'invalid_email' | 'bad_request' };
+export type ValidationResult = { ok: true; value: ColoringBookRequest } | { ok: false; error: 'invalid_email' | 'bad_request' };
 
-/** Validates the JSON body. Only known keys and known sticker ids are accepted. */
+/** Validates the JSON body. Only known keys and known page ids are accepted. */
 export function validateRequestBody(raw: unknown): ValidationResult {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'bad_request' };
   const body = raw as Record<string, unknown>;
-  const allowed = new Set(['email', 'stickers', 'newsletter', 'requestId', 'website']);
+  const allowed = new Set(['email', 'pages', 'newsletter', 'requestId', 'website']);
   if (Object.keys(body).some((k) => !allowed.has(k))) return { ok: false, error: 'bad_request' };
 
   if (!isValidEmail(body.email)) return { ok: false, error: 'invalid_email' };
 
-  if (!Array.isArray(body.stickers) || body.stickers.length < 1 || body.stickers.length > STICKER_IDS.length) {
+  if (!Array.isArray(body.pages) || body.pages.length < 1 || body.pages.length > PAGE_IDS.length) {
     return { ok: false, error: 'bad_request' };
   }
-  const seenIds = new Set<string>();
-  const seenSlots = new Set<number>();
-  const stickers: PlacedSticker[] = [];
-  for (const item of body.stickers) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) return { ok: false, error: 'bad_request' };
-    const { id, slot, ...rest } = item as Record<string, unknown>;
-    if (Object.keys(rest).length) return { ok: false, error: 'bad_request' };
-    if (!isStickerId(id) || !isSlotIndex(slot) || seenIds.has(id) || seenSlots.has(slot)) return { ok: false, error: 'bad_request' };
-    seenIds.add(id);
-    seenSlots.add(slot);
-    stickers.push({ id, slot });
-  }
-  if (seenSlots.size > BOOK_SLOT_COUNT) return { ok: false, error: 'bad_request' };
+  if (!body.pages.every(isPageId) || new Set(body.pages).size !== body.pages.length) return { ok: false, error: 'bad_request' };
+  const pages = sortPages(body.pages);
 
   if (body.newsletter !== undefined && typeof body.newsletter !== 'boolean') return { ok: false, error: 'bad_request' };
   if (body.requestId !== undefined && (typeof body.requestId !== 'string' || !REQUEST_ID.test(body.requestId))) {
@@ -74,7 +63,7 @@ export function validateRequestBody(raw: unknown): ValidationResult {
     ok: true,
     value: {
       email: normalizeEmail(body.email),
-      stickers,
+      pages,
       newsletter: body.newsletter === true,
       requestId: typeof body.requestId === 'string' ? body.requestId : null,
       trap: typeof body.website === 'string' ? body.website : '',

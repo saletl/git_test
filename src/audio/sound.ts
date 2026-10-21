@@ -27,7 +27,15 @@ export type SoundId =
   | 'giggle'
   | 'stick'
   | 'page'
-  | 'bonk';
+  | 'bonk'
+  | 'toot'
+  | 'quack'
+  | 'drum'
+  | 'gulp'
+  | 'glub'
+  | 'stamp'
+  | 'click'
+  | 'splash';
 
 type Ctx = AudioContext;
 
@@ -239,6 +247,36 @@ const recipes: Record<SoundId, () => void> = {
   },
   page: () => noise({ dur: 0.25, gain: 0.05, filter: 1800, sweepTo: 3500 }),
   bonk: () => tone({ freq: 300, to: 140, dur: 0.16, gain: 0.14, type: 'triangle' }),
+  toot: () => {
+    tone({ freq: NOTE.G4!, dur: 0.16, gain: 0.08, type: 'sawtooth', attack: 0.03 });
+    tone({ freq: NOTE.C5!, start: 0.18, dur: 0.32, gain: 0.08, type: 'sawtooth', attack: 0.03 });
+  },
+  quack: () => {
+    tone({ freq: 420, to: 300, dur: 0.12, gain: 0.1, type: 'square' });
+    tone({ freq: 400, to: 280, start: 0.16, dur: 0.14, gain: 0.09, type: 'square' });
+  },
+  drum: () => {
+    tone({ freq: 140, to: 60, dur: 0.18, gain: 0.3 });
+    tone({ freq: 140, to: 60, start: 0.2, dur: 0.18, gain: 0.26 });
+    noise({ start: 0.4, dur: 0.12, gain: 0.08, filter: 3000 });
+  },
+  gulp: () => {
+    tone({ freq: 260, to: 180, dur: 0.12, gain: 0.12 });
+    tone({ freq: 220, to: 150, start: 0.18, dur: 0.12, gain: 0.1 });
+  },
+  glub: () => {
+    for (let i = 0; i < 4; i++) tone({ freq: 240 + (i % 2) * 120, to: 700 + i * 60, start: i * 0.16, dur: 0.1, gain: 0.1 });
+  },
+  stamp: () => {
+    tone({ freq: 160, to: 70, dur: 0.14, gain: 0.3, type: 'triangle' });
+    noise({ start: 0.02, dur: 0.1, gain: 0.08, filter: 900 });
+    melody([['G5', 1], ['C6', 2]], 0.09, 'triangle', 0.08);
+  },
+  click: () => tone({ freq: 1400, to: 900, dur: 0.04, gain: 0.08, type: 'square' }),
+  splash: () => {
+    noise({ dur: 0.5, gain: 0.08, filter: 1600, sweepTo: 600 });
+    tone({ freq: 500, to: 1200, start: 0.1, dur: 0.12, gain: 0.06 });
+  },
 };
 
 export function playSound(id: SoundId): void {

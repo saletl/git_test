@@ -109,14 +109,15 @@ export function plushShapes(kind: PlushKind, at: Point, scale = 1, upsideDown = 
 }
 
 /** A small round bandage, drawn around (0, 0). */
-export type BandageStyle = 'stars' | 'hearts' | 'stripes';
+export type BandageStyle = 'stars' | 'hearts' | 'stripes' | 'rainbow';
 
-export const BANDAGE_STYLES: readonly BandageStyle[] = ['stars', 'hearts', 'stripes'];
+export const BANDAGE_STYLES: readonly BandageStyle[] = ['stars', 'hearts', 'stripes', 'rainbow'];
 
 const BANDAGE_COLORS: Record<BandageStyle, { base: string; edge: string; dot: string }> = {
   stars: { base: C.blueLight, edge: C.blueDeep, dot: C.gold },
   hearts: { base: C.berryLight, edge: C.berry, dot: C.coralDeep },
   stripes: { base: C.goldLight, edge: C.goldDeep, dot: C.mint },
+  rainbow: { base: C.mintLight, edge: C.mintDeep, dot: C.coral },
 };
 
 export function bandageShapes(style: BandageStyle, at: Point, rotate = 0, scale = 1): Shape[] {
@@ -129,6 +130,14 @@ export function bandageShapes(style: BandageStyle, at: Point, rotate = 0, scale 
     base.push(fill(star(-17, 0, 4.4, 2.2), col.dot), fill(star(17, 0, 4.4, 2.2), col.dot), fill(star(0, 0, 4, 2), col.dot));
   } else if (style === 'hearts') {
     base.push(fill(ellipse(-17, 0, 3, 3), col.dot), fill(ellipse(17, 0, 3, 3), col.dot), fill(ellipse(0, 0, 2.6, 2.6), col.dot));
+  } else if (style === 'rainbow') {
+    base.push(
+      line('M-24 3C-22 -4 -16 -4 -14 3', C.coral, 2.4),
+      line('M-21 3C-20 -1 -18 -1 -17 3', C.gold, 2),
+      line('M14 3C16 -4 22 -4 24 3', C.blue, 2.4),
+      line('M17 3C18 -1 20 -1 21 3', C.berry, 2),
+      fill(ellipse(0, 0, 2.4, 2.4), C.gold),
+    );
   } else {
     base.push(
       line('M-20 -6L-14 6', col.dot, 2.6),

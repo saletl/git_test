@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Browser tests run against the production build (`vite preview`), with the local API in mock mode,
- * so no real email is ever sent.
+ * Browser tests run against the production build (`vite preview`). These are simulated phone and tablet
+ * viewports in desktop Chromium, not real devices.
  */
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -20,7 +20,6 @@ export default defineConfig({
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { EMAIL_PROVIDER: 'mock' },
   },
   projects: [
     { name: 'phone-390', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } },

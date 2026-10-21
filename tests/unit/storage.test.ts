@@ -28,43 +28,50 @@ class BrokenStore implements KeyValueStore {
 }
 
 describe('local progress', () => {
-  it('saves and reloads stickers, placements and settings', () => {
+  it('saves and reloads coloring pages and settings', () => {
     const store = new FakeStore();
-    new ProgressStore(store).save({ stickers: ['pip', 'mochi'], placements: { pip: 2 }, muted: true, calm: true });
+    new ProgressStore(store).save({ pages: ['pip', 'mochi'], muted: true, calm: true });
     const loaded = new ProgressStore(store).load();
-    expect(loaded).toEqual({ stickers: ['pip', 'mochi'], placements: { pip: 2 }, muted: true, calm: true });
+    expect(loaded).toEqual({ pages: ['pip', 'mochi'], muted: true, calm: true });
   });
 
   it('only ever stores the allowed, non-identifying fields', () => {
     const store = new FakeStore();
-    new ProgressStore(store).save({ stickers: ['pip'], placements: {}, muted: false, calm: false, ...({ name: 'Ava', age: 5 } as object) } as never);
+    new ProgressStore(store).save({ pages: ['pip'], muted: false, calm: false, ...({ name: 'Ava', age: 5, email: 'a@b.co' } as object) } as never);
     const saved = JSON.parse(store.getItem(STORAGE_KEY)!);
-    expect(Object.keys(saved).sort()).toEqual(['calm', 'muted', 'placements', 'stickers']);
+    expect(Object.keys(saved).sort()).toEqual(['calm', 'muted', 'pages']);
   });
 
-  it('drops unknown stickers, bad spots and placements for stickers not earned', () => {
-    expect(
-      sanitizeProgress({ stickers: ['pip', 'dragonfly', 3], placements: { pip: 9, mochi: 1, dragonfly: 0 }, muted: 'yes' }),
-    ).toEqual({ stickers: ['pip'], placements: {}, muted: false, calm: false });
+  it('drops unknown or repeated pages and keeps book order', () => {
+    expect(sanitizeProgress({ pages: ['mochi', 'pip', 'dragonfly', 3, 'pip'], muted: 'yes' })).toEqual({ pages: ['pip', 'mochi'], muted: false, calm: false });
+  });
+
+  it('turns stickers saved by the first version into coloring pages', () => {
+    const store = new FakeStore();
+    store.setItem(STORAGE_KEY, JSON.stringify({ stickers: ['waddles', 'pip'], placements: { pip: 2 }, muted: true, calm: false }));
+    const progress = new ProgressStore(store);
+    expect(progress.load()).toEqual({ pages: ['pip', 'waddles'], muted: true, calm: false });
+    progress.save(progress.load());
+    expect(JSON.parse(store.getItem(STORAGE_KEY)!)).toEqual({ pages: ['pip', 'waddles'], muted: true, calm: false });
   });
 
   it('keeps working in memory when storage is blocked', () => {
     const progress = new ProgressStore(new BrokenStore());
-    progress.save({ stickers: ['waddles'], placements: { waddles: 0 }, muted: false, calm: false });
-    expect(progress.load().stickers).toEqual(['waddles']);
+    progress.save({ pages: ['waddles'], muted: false, calm: false });
+    expect(progress.load().pages).toEqual(['waddles']);
     expect(() => progress.clear()).not.toThrow();
   });
 
   it('works with no storage at all', () => {
     const progress = new ProgressStore(null);
     expect(progress.persistent).toBe(false);
-    expect(progress.load().stickers).toEqual([]);
+    expect(progress.load().pages).toEqual([]);
   });
 
   it('survives corrupted saved data', () => {
     const store = new FakeStore();
     store.setItem(STORAGE_KEY, '{not json');
-    expect(new ProgressStore(store).load().stickers).toEqual([]);
+    expect(new ProgressStore(store).load().pages).toEqual([]);
   });
 });
 

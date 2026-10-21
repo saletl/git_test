@@ -1,6 +1,6 @@
 # Suggested newsletter welcome email
 
-Set this up in MailerLite as an automation that starts when a subscriber **joins the group "Curious Creature Clinic — Newsletter Opt-ins"**. With double opt-in on, that happens only after they confirm, so people who only asked for the sticker book never receive it.
+Set this up in MailerLite as an automation that starts when a subscriber **joins the group "Curious Creature Clinic: Newsletter Opt-ins"**. With double opt-in on, that happens only after they confirm, so people who only asked for the coloring book never receive it.
 
 **Subject:** Welcome to The Burrow
 

@@ -1,17 +1,20 @@
-import { buildStickerBookPdf, PDF_FILENAME } from '../src/stickers/pdf';
+import { buildColoringBookPdf, PDF_FILENAME } from '../src/coloring/pdf';
 import type { EmailProvider } from './emailProviders';
-import { stickerBookEmail } from './emailTemplate';
+import { coloringBookEmail } from './emailTemplate';
 import type { NewsletterOutcome, NewsletterService } from './mailerlite';
 import { hashKey, MemoryRateLimiter, type RateRule } from './rateLimit';
 import { MAX_BODY_BYTES, validateRequestBody } from './validation';
 
 /**
- * POST /api/sticker-book/email
+ * FUTURE ENDPOINT, NOT DEPLOYED: POST /api/coloring-book/email
  *
- * Body: { email, stickers: [{ id, slot }], newsletter?: boolean, requestId?: string, website?: "" }
+ * Body: { email, pages: ["pip", ...], newsletter?: boolean, requestId?: string, website?: "" }
  *
- * Sends a one-time email with the sticker book PDF. If (and only if) `newsletter` is true, the address
+ * Sends a one-time email with the coloring book PDF. If (and only if) `newsletter` is true, the address
  * is also offered to MailerLite, independently of the email delivery.
+ *
+ * Nothing calls this today. The game uses services/coloringBookDelivery.ts, which is disconnected.
+ * See docs/EMAIL-INTEGRATION.md for the checklist to finish before wiring it up.
  */
 
 export type ApiError = 'bad_request' | 'invalid_email' | 'rate_limited' | 'not_configured' | 'delivery_failed' | 'forbidden' | 'method_not_allowed' | 'too_large';
@@ -103,7 +106,7 @@ async function readLimited(request: Request): Promise<string | null> {
   return new TextDecoder().decode(all);
 }
 
-export async function handleStickerBookEmail(request: Request, deps: HandlerDeps, clientIp: string | null): Promise<Response> {
+export async function handleColoringBookEmail(request: Request, deps: HandlerDeps, clientIp: string | null): Promise<Response> {
   const log = deps.log ?? (() => undefined);
   const now = deps.now ?? (() => new Date());
   const { ok: originOk, origin } = originAllowed(request, deps.allowedOrigins);
@@ -123,7 +126,7 @@ export async function handleStickerBookEmail(request: Request, deps: HandlerDeps
   }
   if (request.method !== 'POST') return json(405, { ok: false, error: 'method_not_allowed' }, null);
   if (!originOk) {
-    log('sticker_email_rejected', { reason: 'origin' });
+    log('coloring_email_rejected', { reason: 'origin' });
     return json(403, { ok: false, error: 'forbidden' }, null);
   }
   if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
@@ -142,7 +145,7 @@ export async function handleStickerBookEmail(request: Request, deps: HandlerDeps
   if (!parsed.ok) return json(400, { ok: false, error: parsed.error }, origin);
   const input = parsed.value;
   if (input.trap) {
-    log('sticker_email_rejected', { reason: 'trap' });
+    log('coloring_email_rejected', { reason: 'trap' });
     return json(400, { ok: false, error: 'bad_request' }, origin);
   }
 
@@ -152,7 +155,7 @@ export async function handleStickerBookEmail(request: Request, deps: HandlerDeps
     const key = `${input.requestId}:${recipientKey}`;
     const done = completed.get(key);
     if (done && now().getTime() - done.at < IDEMPOTENCY_WINDOW_MS) {
-      log('sticker_email_repeat', {});
+      log('coloring_email_repeat', {});
       return json(200, done.body, origin);
     }
   }
@@ -163,7 +166,7 @@ export async function handleStickerBookEmail(request: Request, deps: HandlerDeps
     !deps.limiter.allow(`to:${recipientKey}`, RATE_RULES.recipient) ||
     !deps.limiter.allow('global', RATE_RULES.global)
   ) {
-    log('sticker_email_rejected', { reason: 'rate' });
+    log('coloring_email_rejected', { reason: 'rate' });
     return json(429, { ok: false, error: 'rate_limited' }, origin);
   }
 
@@ -172,8 +175,8 @@ export async function handleStickerBookEmail(request: Request, deps: HandlerDeps
 
   const deliveryTask = (async () => {
     if (!deps.provider) return { status: 'not_configured' as const };
-    const pdf = await buildStickerBookPdf(input.stickers);
-    const message = stickerBookEmail({ newsletterRequested: input.newsletter });
+    const pdf = await buildColoringBookPdf(input.pages);
+    const message = coloringBookEmail({ newsletterRequested: input.newsletter });
     return deps.provider.send({
       to: input.email,
       subject: message.subject,
@@ -185,11 +188,11 @@ export async function handleStickerBookEmail(request: Request, deps: HandlerDeps
   })().catch(() => ({ status: 'failed' as const, reason: 'exception' }));
 
   const [delivery, newsletter] = await Promise.all([deliveryTask, newsletterTask]);
-  log('sticker_email_result', {
+  log('coloring_email_result', {
     delivery: delivery.status,
     reason: 'reason' in delivery ? delivery.reason : undefined,
     newsletter,
-    stickers: input.stickers.length,
+    pages: input.pages.length,
   });
 
   if (delivery.status === 'not_configured') return json(503, { ok: false, error: 'not_configured', newsletter }, origin);

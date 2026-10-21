@@ -1,5 +1,5 @@
 import { C } from '../art/palette';
-import type { GaugeReading, LensDiscovery, PopupSpec } from '../game/types';
+import type { GaugeReading, LensDiscovery, LookTarget, PopupSpec } from '../game/types';
 
 /**
  * The thermometer gauge and the magnified ear view. Both are purely pictures:
@@ -157,16 +157,81 @@ function Discovery({ kind }: { kind: LensDiscovery }) {
           <rect x="-16" y="-34" width="26" height="8" rx="3" fill={C.cream} stroke={C.coralDeep} strokeWidth="3" />
         </g>
       );
+    case 'campfire':
+      return (
+        <g className="disc disc-flicker">
+          <circle cy="0" r="44" fill={C.goldLight} opacity="0.35" />
+          <path d="M-28 26 L22 12 M-22 12 L28 26" stroke={C.woodDeep} strokeWidth="9" strokeLinecap="round" />
+          <path d="M0 -30 C16 -12 18 2 12 12 C7 19 -7 19 -12 12 C-18 2 -14 -12 0 -30 Z" fill={C.coral} stroke={C.coralDeep} strokeWidth="2.4" />
+          <path d="M0 -10 C7 -2 7 5 4 9 C2 12 -2 12 -4 9 C-7 5 -6 -2 0 -10 Z" fill={C.goldLight} />
+          <circle cx="-20" cy="-24" r="2.4" fill={C.gold} />
+          <circle cx="22" cy="-18" r="2" fill={C.gold} />
+        </g>
+      );
+    case 'iceberg':
+      return (
+        <g className="disc disc-bob">
+          <path d="M-46 14 C-30 10 -18 18 0 14 C18 10 30 18 46 14" fill="none" stroke={C.blue} strokeWidth="4" strokeLinecap="round" />
+          <path d="M-30 14 L-14 -26 L0 -12 L10 -32 L30 14 Z" fill={C.white} stroke={C.blueDeep} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M-14 -26 L-8 -6 L0 -12" fill="none" stroke={C.blueLight} strokeWidth="2.4" />
+          <g transform="translate(20 30)">
+            <path d="M10 0 L18 -7 L18 7 Z" fill={C.coral} stroke={C.coralDeep} strokeWidth="1.8" strokeLinejoin="round" />
+            <ellipse rx="12" ry="7" fill={C.gold} stroke={C.goldDeep} strokeWidth="2" />
+            <circle cx="-5" cy="-1.5" r="1.8" fill={C.ink} />
+          </g>
+        </g>
+      );
+    case 'disco':
+      return (
+        <g className="disc disc-spin">
+          <path d="M0 -44 V-30" stroke={C.inkSoft} strokeWidth="2.4" />
+          <circle r="30" fill={C.lilacLight} stroke={C.lilacDeep} strokeWidth="3" />
+          <path d="M-30 0 H30 M0 -30 V30 M-21 -21 L21 21 M-21 21 L21 -21" stroke={C.white} strokeWidth="2" opacity="0.8" />
+          <circle cx="-10" cy="-12" r="5" fill={C.white} opacity="0.85" />
+          <path d="M36 -30 L39 -22 L47 -20 L39 -17 L36 -9 L33 -17 L25 -20 L33 -22 Z" fill={C.gold} />
+          <path d="M-38 18 L-36 23 L-31 24 L-36 26 L-38 31 L-40 26 L-45 24 L-40 23 Z" fill={C.berry} />
+        </g>
+      );
+    case 'carrot':
+      return (
+        <g className="disc disc-wiggle" transform="rotate(20)">
+          <path d="M-6 -26 C-14 -40 -4 -42 0 -30 C4 -42 14 -40 6 -26" fill={C.mint} stroke={C.mintDeep} strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M-12 -26 C-4 -30 4 -30 12 -26 L2 32 C1 36 -1 36 -2 32 Z" fill={C.coral} stroke={C.coralDeep} strokeWidth="3" strokeLinejoin="round" />
+          <path d="M-8 -12 L-2 -12 M4 0 L-4 0 M-4 12 L2 12" stroke={C.coralDeep} strokeWidth="2.4" strokeLinecap="round" />
+        </g>
+      );
   }
 }
 
-export function LensPopup({ discovery }: { discovery: LensDiscovery }) {
+function EarBackdrop() {
   return (
-    <svg viewBox="-110 -110 220 220" className="lens" aria-hidden="true" focusable="false">
+    <>
       <circle r="100" fill="#f3c3a6" />
       <circle r="78" fill="#f6cfb6" />
       <circle r="56" fill="#f9dccb" />
       <circle r="34" fill="#fbe8dc" />
+    </>
+  );
+}
+
+/** A cartoon open mouth: clearly pretend, nothing realistic. */
+function ThroatBackdrop() {
+  return (
+    <>
+      <circle r="100" fill="#f7c9c0" />
+      <ellipse cy="4" rx="80" ry="70" fill="#b8525f" />
+      <ellipse cy="-6" rx="62" ry="50" fill="#9e4352" />
+      <path d="M-70 -34 C-40 -62 40 -62 70 -34 L70 -48 C40 -78 -40 -78 -70 -48 Z" fill={C.white} opacity="0.9" />
+      <path d="M-62 46 C-30 22 30 22 62 46 C40 70 -40 70 -62 46 Z" fill="#f08a8a" stroke="#d86f74" strokeWidth="3" />
+      <path d="M0 34 V58" stroke="#d86f74" strokeWidth="3" strokeLinecap="round" />
+    </>
+  );
+}
+
+export function LensPopup({ discovery, view = 'ear' }: { discovery: LensDiscovery; view?: LookTarget }) {
+  return (
+    <svg viewBox="-110 -110 220 220" className={`lens lens--${view}`} aria-hidden="true" focusable="false">
+      {view === 'throat' ? <ThroatBackdrop /> : <EarBackdrop />}
       <path d="M-60 -50 C-30 -70 30 -70 60 -40" stroke={C.white} strokeWidth="6" opacity="0.25" fill="none" strokeLinecap="round" />
       <g className="lens-discovery">
         <Discovery kind={discovery} />
@@ -179,5 +244,5 @@ export function LensPopup({ discovery }: { discovery: LensDiscovery }) {
 }
 
 export function Popup({ spec }: { spec: PopupSpec }) {
-  return spec.kind === 'gauge' ? <GaugePopup reading={spec.reading} /> : <LensPopup discovery={spec.discovery} />;
+  return spec.kind === 'gauge' ? <GaugePopup reading={spec.reading} /> : <LensPopup discovery={spec.discovery} view={spec.view} />;
 }

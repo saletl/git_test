@@ -4,71 +4,71 @@ import { useSettings } from '../app/settings';
 import { Creature } from '../characters/Creature';
 import { BottomBar, TopBar } from '../components/Frame';
 import { BookIcon, DoorIcon } from '../icons/UiIcons';
-import { StickerArt } from '../stickers/StickerArt';
-import { STICKERS, type StickerId } from '../stickers/catalog';
+import { PAGES, type PageId } from '../coloring/catalog';
+import { PageView } from '../coloring/PageView';
 import { PATIENT_BY_ID } from './patients';
 import type { PatientId } from './types';
 import { useReactionPlayer } from './useReactionPlayer';
 
 /**
- * A short, happy ending: the patient's farewell, the sticker, then a calm pause with clear choices.
+ * A short, happy ending: the patient's farewell, the new coloring page, then a calm pause with clear choices.
  * Nothing starts automatically after this.
  */
 export function VisitCompleteScreen({
   patientId,
-  stickerId,
+  pageId,
   onWaitingRoom,
-  onStickers,
+  onBook,
   onGrownUps,
   onExit,
-  onStickerLanded,
+  onPageLanded,
   bookKey,
 }: {
   patientId: PatientId;
-  stickerId: StickerId;
+  pageId: PageId;
   onWaitingRoom: () => void;
-  onStickers: () => void;
+  onBook: () => void;
   onGrownUps: () => void;
   onExit: () => void;
-  onStickerLanded: () => void;
+  onPageLanded: () => void;
   bookKey: number;
 }) {
   const def = PATIENT_BY_ID[patientId];
   const { play, announce, calm } = useSettings();
   const player = useReactionPlayer(def);
-  const [stage, setStage] = useState<'farewell' | 'sticker' | 'flying' | 'done'>('farewell');
-  const stickerRef = useRef<HTMLDivElement>(null);
+  const [stage, setStage] = useState<'farewell' | 'page' | 'flying' | 'done'>('farewell');
+  const pageRef = useRef<HTMLDivElement>(null);
   const landed = useRef(false);
 
   useEffect(() => {
     player.play(def.farewell);
     const farewellMs = def.farewell.reduce((sum, b) => sum + b.ms, 0);
-    const showSticker = window.setTimeout(() => {
-      setStage('sticker');
+    const showPage = window.setTimeout(() => {
+      setStage('page');
       play('sparkle');
-      announce(`You earned the ${STICKERS[stickerId].name} sticker! It goes into your sticker book.`);
-    }, Math.min(farewellMs, 3200));
-    return () => window.clearTimeout(showSticker);
+      announce(`You earned ${PAGES[pageId].name}'s coloring page! It goes into your coloring book.`);
+    }, Math.min(farewellMs, 3600));
+    return () => window.clearTimeout(showPage);
     // Only on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (stage !== 'sticker') return;
-    const t = window.setTimeout(() => setStage('flying'), 1500);
+    if (stage !== 'page') return;
+    const t = window.setTimeout(() => setStage('flying'), 1800);
     return () => window.clearTimeout(t);
   }, [stage]);
 
   useEffect(() => {
     if (stage !== 'flying') return;
-    const el = stickerRef.current;
+    const el = pageRef.current;
     const target = document.querySelector('[data-book-target]');
     const finish = () => {
       if (landed.current) return;
       landed.current = true;
       setStage('done');
       play('pop');
-      onStickerLanded();
+      onPageLanded();
     };
     if (!el || !target || calm || !el.animate) {
       const t = window.setTimeout(finish, calm ? 400 : 0);
@@ -91,13 +91,13 @@ export function VisitCompleteScreen({
     return () => {
       window.clearTimeout(fallback);
     };
-  }, [stage, calm, play, onStickerLanded]);
+  }, [stage, calm, play, onPageLanded]);
 
   const expression = player.visual.expression ?? 'happy';
 
   return (
     <div className="screen complete">
-      <TopBar onHome={onWaitingRoom} homeLabel="Back to the waiting room" onStickers={onStickers} onGrownUps={onGrownUps} bookKey={bookKey} />
+      <TopBar onHome={onWaitingRoom} homeLabel="Back to the waiting room" onBook={onBook} onGrownUps={onGrownUps} bookKey={bookKey} />
       <main className="complete__main">
         <div className="complete__burst" aria-hidden="true" />
         <div className="complete__patient">
@@ -113,9 +113,9 @@ export function VisitCompleteScreen({
             <EffectsLayer effects={player.effects} />
           </svg>
         </div>
-        {stage === 'sticker' || stage === 'flying' ? (
-          <div ref={stickerRef} className="complete__sticker" role="img" aria-label={`${STICKERS[stickerId].name} sticker`}>
-            <StickerArt id={stickerId} />
+        {stage === 'page' || stage === 'flying' ? (
+          <div ref={pageRef} className="complete__page" role="img" aria-label={`New coloring page: ${PAGES[pageId].title}`}>
+            <PageView id={pageId} />
           </div>
         ) : null}
         <div className={`complete__choices${stage === 'farewell' ? '' : ' is-visible'}`}>
@@ -123,9 +123,9 @@ export function VisitCompleteScreen({
             <DoorIcon className="big-choice__icon" />
             <span>Next patient</span>
           </button>
-          <button type="button" className="big-choice big-choice--book" onClick={onStickers}>
+          <button type="button" className="big-choice big-choice--book" onClick={onBook}>
             <BookIcon className="big-choice__icon" />
-            <span>My stickers</span>
+            <span>My coloring book</span>
           </button>
         </div>
       </main>

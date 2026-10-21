@@ -1,19 +1,18 @@
-import { STICKER_IDS, isSlotIndex, isStickerId, type StickerId } from '../stickers/catalog';
+import { sortPages, type PageId } from '../coloring/catalog';
 
 /**
  * Everything the game saves on the device. Nothing here identifies a child:
- * only which stickers exist in the book, where they sit, and two display settings.
+ * only which coloring pages have been earned, and two display settings.
  */
 export interface SavedProgress {
-  stickers: StickerId[];
-  placements: Partial<Record<StickerId, number>>;
+  pages: PageId[];
   muted: boolean;
   calm: boolean;
 }
 
 export const STORAGE_KEY = 'curious-creature-clinic.v1';
 
-export const DEFAULT_PROGRESS: SavedProgress = { stickers: [], placements: {}, muted: false, calm: false };
+export const DEFAULT_PROGRESS: SavedProgress = { pages: [], muted: false, calm: false };
 
 /** Minimal Storage shape so tests and browsers without storage can supply their own. */
 export interface KeyValueStore {
@@ -35,26 +34,16 @@ function browserStore(): KeyValueStore | null {
   }
 }
 
-/** Validates whatever was in storage and drops anything unexpected. */
+/**
+ * Validates whatever was in storage and drops anything unexpected.
+ * Saves from the first version kept "stickers"; each sticker becomes the same patient's coloring page.
+ */
 export function sanitizeProgress(raw: unknown): SavedProgress {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_PROGRESS, placements: {} };
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_PROGRESS, pages: [] };
   const value = raw as Record<string, unknown>;
-  const stickers = Array.isArray(value.stickers)
-    ? STICKER_IDS.filter((id) => (value.stickers as unknown[]).includes(id))
-    : [];
-  const placements: Partial<Record<StickerId, number>> = {};
-  const usedSlots = new Set<number>();
-  if (value.placements && typeof value.placements === 'object') {
-    for (const [id, slot] of Object.entries(value.placements as Record<string, unknown>)) {
-      if (isStickerId(id) && stickers.includes(id) && isSlotIndex(slot) && !usedSlots.has(slot)) {
-        placements[id] = slot;
-        usedSlots.add(slot);
-      }
-    }
-  }
+  const source = Array.isArray(value.pages) ? value.pages : Array.isArray(value.stickers) ? value.stickers : [];
   return {
-    stickers,
-    placements,
+    pages: sortPages(source),
     muted: value.muted === true,
     calm: value.calm === true,
   };
@@ -75,17 +64,17 @@ export class ProgressStore {
   }
 
   private read(): SavedProgress {
-    if (!this.store) return { ...DEFAULT_PROGRESS, placements: {} };
+    if (!this.store) return { ...DEFAULT_PROGRESS, pages: [] };
     try {
       const text = this.store.getItem(STORAGE_KEY);
       return sanitizeProgress(text ? JSON.parse(text) : null);
     } catch {
-      return { ...DEFAULT_PROGRESS, placements: {} };
+      return { ...DEFAULT_PROGRESS, pages: [] };
     }
   }
 
   load(): SavedProgress {
-    return { ...this.memory, stickers: [...this.memory.stickers], placements: { ...this.memory.placements } };
+    return { ...this.memory, pages: [...this.memory.pages] };
   }
 
   save(progress: SavedProgress): void {
@@ -99,7 +88,7 @@ export class ProgressStore {
   }
 
   clear(): void {
-    this.memory = { ...DEFAULT_PROGRESS, placements: {} };
+    this.memory = { ...DEFAULT_PROGRESS, pages: [] };
     if (!this.store) return;
     try {
       this.store.removeItem(STORAGE_KEY);

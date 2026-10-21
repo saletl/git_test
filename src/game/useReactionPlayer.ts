@@ -3,7 +3,7 @@ import type { CreatureProps } from '../art/creature';
 import type { Expression, Look } from '../art/face';
 import { EFFECT_LIFETIME, type ActiveEffect } from '../animations/Effects';
 import { useSettings } from '../app/settings';
-import type { AnyToolId, Beat, EffectSpec, PatientDefinition, PopupSpec, Reaction } from './types';
+import type { Beat, EffectSpec, PatientDefinition, PopupSpec, Reaction } from './types';
 
 export interface PlayerVisual {
   /** null means "use the resting expression". */
@@ -12,8 +12,8 @@ export interface PlayerVisual {
   action: string | null;
   actionKey: number;
   popup: PopupSpec | null;
-  toolAt: { tool: AnyToolId; at: string } | null;
-  demo: { tool: AnyToolId; at: string } | null;
+  toolAt: NonNullable<Beat['toolAt']> | null;
+  item: NonNullable<Beat['item']> | null;
 }
 
 const IDLE_VISUAL: Omit<PlayerVisual, 'actionKey'> = {
@@ -22,7 +22,7 @@ const IDLE_VISUAL: Omit<PlayerVisual, 'actionKey'> = {
   action: null,
   popup: null,
   toolAt: null,
-  demo: null,
+  item: null,
 };
 
 /**
@@ -73,7 +73,7 @@ export function useReactionPlayer(def: PatientDefinition, initialProps?: Creatur
         actionKey: beat.action ? v.actionKey + 1 : v.actionKey,
         popup: beat.popup === undefined ? v.popup : beat.popup,
         toolAt: beat.toolAt === undefined ? v.toolAt : beat.toolAt,
-        demo: beat.demo === undefined ? v.demo : beat.demo,
+        item: beat.item === undefined ? v.item : beat.item,
       }));
       if (beat.props) setProps((p) => ({ ...p, ...beat.props }));
       if (beat.effects?.length) spawn(beat.effects);

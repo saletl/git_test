@@ -1,5 +1,5 @@
 /**
- * A tiny vector-art toolkit. Every character, sticker and decoration is a list of `Shape`s,
+ * A tiny vector-art toolkit. Every character, coloring page and decoration is a list of `Shape`s,
  * so the same artwork renders in the browser (as SVG) and in the printable PDF (with pdf-lib).
  * Only cubic Bezier paths are produced, which both renderers draw identically.
  */
@@ -138,18 +138,54 @@ export function star(cx: number, cy: number, outer: number, inner = outer * 0.5,
 }
 
 /**
- * Maps every point of a path built by these helpers (they only use absolute M, L and C commands,
- * so numbers always come in x,y pairs).
+ * Maps every point of a path. Paths here use absolute M, L, C and Z commands, plus H and V,
+ * which are turned into L first so the numbers always come in x,y pairs.
  */
 export function mapPath(d: string, fn: (x: number, y: number) => readonly [number, number]): string {
-  const nums = d.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? [];
-  const mapped: string[] = [];
-  for (let i = 0; i + 1 < nums.length; i += 2) {
-    const [x, y] = fn(parseFloat(nums[i]!), parseFloat(nums[i + 1]!));
-    mapped.push(String(r2(x)), String(r2(y)));
+  const tokens = d.match(/[A-Za-z]|-?\d*\.?\d+(?:e-?\d+)?/g) ?? [];
+  const out: string[] = [];
+  let cmd = 'M';
+  let cx = 0;
+  let cy = 0;
+  let i = 0;
+  const num = () => parseFloat(tokens[i++] ?? '0');
+  const point = (x: number, y: number) => {
+    cx = x;
+    cy = y;
+    const [mx, my] = fn(x, y);
+    return `${r2(mx)} ${r2(my)}`;
+  };
+  while (i < tokens.length) {
+    const t = tokens[i]!;
+    if (/[A-Za-z]/.test(t)) {
+      cmd = t;
+      i++;
+      if (cmd === 'Z' || cmd === 'z') out.push('Z');
+      continue;
+    }
+    switch (cmd) {
+      case 'H':
+        out.push(`L${point(num(), cy)}`);
+        break;
+      case 'V':
+        out.push(`L${point(cx, num())}`);
+        break;
+      case 'C': {
+        const a = point(num(), num());
+        const b = point(num(), num());
+        const c = point(num(), num());
+        out.push(`C${a} ${b} ${c}`);
+        break;
+      }
+      case 'M':
+        out.push(`M${point(num(), num())}`);
+        cmd = 'L';
+        break;
+      default:
+        out.push(`L${point(num(), num())}`);
+    }
   }
-  let k = 0;
-  return d.replace(/-?\d*\.?\d+(?:e-?\d+)?/g, () => mapped[k++] ?? '0');
+  return out.join('');
 }
 
 /** Moves every point of a path. */

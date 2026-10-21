@@ -25,7 +25,8 @@ try {
 const patterns = [
   [/re_[A-Za-z0-9_]{16,}/, 'a Resend API key'],
   [/eyJ0eXAiOiJKV1Qi[A-Za-z0-9._-]{20,}/, 'a JWT-style API key (MailerLite keys look like this)'],
-  [/RESEND_API_KEY|MAILERLITE_API_KEY|MAILERLITE_STICKER_BOOK_GROUP_ID|RATE_LIMIT_SALT/, 'a server-only setting name'],
+  [/RESEND_API_KEY|MAILERLITE_API_KEY|MAILERLITE_GROUP_ID|RATE_LIMIT_SALT/, 'a server-only setting name'],
+  [/\/api\/(coloring|sticker)-book/, 'a call to the email endpoint, which must stay disconnected for now'],
   [/api\.resend\.com|connect\.mailerlite\.com/, 'a server-only API address'],
 ];
 

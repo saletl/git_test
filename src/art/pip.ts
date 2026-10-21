@@ -2,7 +2,7 @@ import type { CreatureArtist, CreatureProps } from './creature';
 import { plushShapes } from './creature';
 import { faceParts, type Expression, type Look } from './face';
 import { C } from './palette';
-import { curve, ellipse, fill, heart, line, mirror, smooth, type Point, type Shape } from './shapes';
+import { curve, ellipse, fill, heart, line, mirror, smooth, star, type Point, type Shape } from './shapes';
 
 /** Pip the Dragon: dramatic, expressive, lovable. Keeps hiccuping bubbles. */
 
@@ -186,10 +186,24 @@ export const pipArt: CreatureArtist = {
         { part: 'eyes', shapes: face.eyes },
         { part: 'brows', shapes: face.brows },
         { part: 'mouth', shapes: face.mouth },
+        { part: 'glasses', shapes: props.glasses === true ? sillyGlasses() : [] },
       ],
     };
   },
 };
+
+/** Big round party glasses for the "silly face" hiccup helper. */
+function sillyGlasses(): Shape[] {
+  return [
+    line('M80 78L62 70', C.coralDeep, 4),
+    line('M160 78L178 70', C.coralDeep, 4),
+    fill(ellipse(98, 82, 20, 19), C.white, C.coralDeep, 5, 0.25),
+    fill(ellipse(142, 82, 20, 19), C.white, C.coralDeep, 5, 0.25),
+    line(curve([118, 80], [120, 74], [122, 80]), C.coralDeep, 4.5),
+    fill(star(78, 64, 7, 3.5), C.gold, C.goldDeep, 1.6),
+    fill(star(162, 64, 7, 3.5), C.gold, C.goldDeep, 1.6),
+  ];
+}
 
 function wingShapes(pts: Point[]): Shape[] {
   const base = pts[0]!;

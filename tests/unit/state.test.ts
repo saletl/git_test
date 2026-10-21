@@ -22,51 +22,51 @@ describe('game state transitions', () => {
     expect(gameReducer(s, { type: 'ENTER_EXAM', patientId: 'mochi' })).toBe(s);
   });
 
-  it('awards the sticker once, even if "finish" is tapped twice', () => {
+  it('awards the coloring page once, even if "finish" is tapped twice', () => {
     const exam = toExam();
     const done = gameReducer(exam, { type: 'COMPLETE_VISIT', patientId: 'pip' });
-    expect(done.stickers).toEqual(['pip']);
-    expect(done.screen).toMatchObject({ name: 'visitComplete', stickerId: 'pip', firstTime: true });
+    expect(done.pages).toEqual(['pip']);
+    expect(done.screen).toMatchObject({ name: 'visitComplete', pageId: 'pip', firstTime: true });
     const doubleTap = gameReducer(done, { type: 'COMPLETE_VISIT', patientId: 'pip' });
     expect(doubleTap).toBe(done);
   });
 
-  it('does not duplicate a sticker collected again on a later visit', () => {
+  it('does not duplicate a page earned again on a later visit', () => {
     const first = gameReducer(toExam(), { type: 'COMPLETE_VISIT', patientId: 'pip' });
     const back = gameReducer(first, { type: 'BACK_TO_WAITING_ROOM' });
     let s = gameReducer(back, { type: 'CHOOSE_PATIENT', patientId: 'pip' });
     s = gameReducer(s, { type: 'ENTER_EXAM', patientId: 'pip' });
     const second = gameReducer(s, { type: 'COMPLETE_VISIT', patientId: 'pip' });
-    expect(second.stickers).toEqual(['pip']);
+    expect(second.pages).toEqual(['pip']);
     expect(second.screen).toMatchObject({ firstTime: false });
   });
 
-  it('keeps stickers in catalog order', () => {
+  it('keeps pages in book order', () => {
     const s = initialGameState(['mochi']);
     let x = gameReducer(s, { type: 'START' });
     x = gameReducer(x, { type: 'CHOOSE_PATIENT', patientId: 'pip' });
     x = gameReducer(x, { type: 'ENTER_EXAM', patientId: 'pip' });
     x = gameReducer(x, { type: 'COMPLETE_VISIT', patientId: 'pip' });
-    expect(x.stickers).toEqual(['pip', 'mochi']);
+    expect(x.pages).toEqual(['pip', 'mochi']);
   });
 
-  it('exits from every child screen straight to goodbye, with no sticker when leaving early', () => {
+  it('exits from every child screen straight to goodbye, with no page when leaving early', () => {
     const fromWelcome = gameReducer(initialGameState(), { type: 'EXIT' });
     expect(fromWelcome.screen.name).toBe('goodbye');
     const fromWaiting = gameReducer(gameReducer(initialGameState(), { type: 'START' }), { type: 'EXIT' });
-    expect(fromWaiting.screen).toEqual({ name: 'goodbye', patientId: null, stickerId: null });
-    const early = gameReducer(toExam(), { type: 'EXIT', patientId: 'pip', earnedSticker: false });
-    expect(early.screen).toEqual({ name: 'goodbye', patientId: 'pip', stickerId: null });
-    expect(early.stickers).toEqual([]);
-    const withBook = gameReducer({ ...toExam(), overlay: 'stickerBook' }, { type: 'EXIT', patientId: 'pip' });
+    expect(fromWaiting.screen).toEqual({ name: 'goodbye', patientId: null, pageId: null });
+    const early = gameReducer(toExam(), { type: 'EXIT', patientId: 'pip', earned: false });
+    expect(early.screen).toEqual({ name: 'goodbye', patientId: 'pip', pageId: null });
+    expect(early.pages).toEqual([]);
+    const withBook = gameReducer({ ...toExam(), overlay: 'coloringBook' }, { type: 'EXIT', patientId: 'pip' });
     expect(withBook.overlay).toBeNull();
     expect(withBook.screen.name).toBe('goodbye');
   });
 
-  it('keeps the sticker when leaving after enough play', () => {
-    const s = gameReducer(toExam(), { type: 'EXIT', patientId: 'pip', earnedSticker: true });
-    expect(s.stickers).toEqual(['pip']);
-    expect(s.screen).toEqual({ name: 'goodbye', patientId: 'pip', stickerId: 'pip' });
+  it('keeps the page when leaving after a little play', () => {
+    const s = gameReducer(toExam(), { type: 'EXIT', patientId: 'pip', earned: true });
+    expect(s.pages).toEqual(['pip']);
+    expect(s.screen).toEqual({ name: 'goodbye', patientId: 'pip', pageId: 'pip' });
   });
 
   it('only opens the parent area through the gate', () => {
@@ -76,25 +76,31 @@ describe('game state transitions', () => {
     expect(gameReducer(gate, { type: 'OPEN_OVERLAY', overlay: 'parentArea' }).overlay).toBe('parentArea');
   });
 
-  it('opening stickers after a visit returns to the waiting room when closed', () => {
+  it('opening the book after a visit returns to the waiting room when closed', () => {
     const done = gameReducer(toExam(), { type: 'COMPLETE_VISIT', patientId: 'pip' });
-    const book = gameReducer(done, { type: 'OPEN_OVERLAY', overlay: 'stickerBook' });
-    expect(book.overlay).toBe('stickerBook');
+    const book = gameReducer(done, { type: 'OPEN_OVERLAY', overlay: 'coloringBook' });
+    expect(book.overlay).toBe('coloringBook');
     const closed = gameReducer(book, { type: 'CLOSE_OVERLAY' });
     expect(closed.screen.name).toBe('waitingRoom');
-    expect(closed.newSticker).toBeNull();
+    expect(closed.newPage).toBeNull();
   });
 
-  it('places, swaps and removes stickers', () => {
-    let s = initialGameState(['pip', 'mochi']);
-    s = gameReducer(s, { type: 'PLACE_STICKER', stickerId: 'pip', slot: 1 });
-    s = gameReducer(s, { type: 'PLACE_STICKER', stickerId: 'mochi', slot: 3 });
-    expect(s.placements).toEqual({ pip: 1, mochi: 3 });
-    s = gameReducer(s, { type: 'PLACE_STICKER', stickerId: 'mochi', slot: 1 });
-    expect(s.placements).toEqual({ pip: 3, mochi: 1 });
-    s = gameReducer(s, { type: 'PLACE_STICKER', stickerId: 'pip', slot: null });
-    expect(s.placements).toEqual({ mochi: 1 });
-    expect(gameReducer(s, { type: 'PLACE_STICKER', stickerId: 'waddles', slot: 0 })).toBe(s);
+  it('unlocks exactly one page per patient, and four pages fill the book', () => {
+    let s: GameState = initialGameState();
+    for (const id of ['mochi', 'pip', 'prickle', 'waddles', 'pip'] as const) {
+      s = gameReducer(s, { type: 'START' });
+      s = gameReducer({ ...s, screen: { name: 'waitingRoom' } }, { type: 'CHOOSE_PATIENT', patientId: id });
+      s = gameReducer(s, { type: 'ENTER_EXAM', patientId: id });
+      s = gameReducer(s, { type: 'COMPLETE_VISIT', patientId: id });
+      expect(s.screen).toMatchObject({ name: 'visitComplete', pageId: id });
+    }
+    expect(s.pages).toEqual(['pip', 'waddles', 'prickle', 'mochi']);
+  });
+
+  it('starts a fresh book when a grown-up resets it', () => {
+    const s = gameReducer(initialGameState(['pip', 'mochi']), { type: 'RESET_PAGES' });
+    expect(s.pages).toEqual([]);
+    expect(s.newPage).toBeNull();
   });
 
   it('goodbye always returns to the start screen', () => {

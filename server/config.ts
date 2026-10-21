@@ -1,10 +1,11 @@
 import { MockProvider, ResendProvider, type EmailProvider, type OutgoingEmail } from './emailProviders';
 import { MailerLiteNewsletter, type NewsletterService } from './mailerlite';
 import { MemoryRateLimiter } from './rateLimit';
-import type { HandlerDeps } from './stickerBookEmail';
+import type { HandlerDeps } from './coloringBookEmail';
 
 /**
  * Reads settings from environment variables (see .env.example). Secrets stay on the server.
+ * Not used by the current build: email is disconnected until docs/EMAIL-INTEGRATION.md is done.
  */
 export type Env = Record<string, string | undefined>;
 
@@ -27,10 +28,10 @@ export function providerFromEnv(env: Env, onMockSend?: (email: OutgoingEmail) =>
 }
 
 export function newsletterFromEnv(env: Env): NewsletterService | null {
-  if (!env.MAILERLITE_API_KEY || !env.MAILERLITE_STICKER_BOOK_GROUP_ID) return null;
+  if (!env.MAILERLITE_API_KEY || !env.MAILERLITE_GROUP_ID) return null;
   return new MailerLiteNewsletter({
     apiKey: env.MAILERLITE_API_KEY,
-    groupId: env.MAILERLITE_STICKER_BOOK_GROUP_ID,
+    groupId: env.MAILERLITE_GROUP_ID,
     doubleOptIn: (env.MAILERLITE_DOUBLE_OPT_IN ?? 'true').toLowerCase() !== 'false',
     log,
   });
